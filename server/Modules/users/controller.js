@@ -4,10 +4,11 @@ const User = require('../users/model');
 const Validator = require('../../helpers/validators')
 
 const JWT_SECRET = process.env.JWT_SECRET;
+console.log("LOGIN SECRET:", JWT_SECRET);
 
 const validateLoginData = async (data) => {
     const rules = {
-        email: "required|email",    
+        email: "required|email",
         passwordHash: "required"
     }
     const validator = new Validator(data, rules)

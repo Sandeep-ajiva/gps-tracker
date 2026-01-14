@@ -1,4 +1,4 @@
-const Organization = require('./model');
+ const Organization = require('./model');
 const Validator = require('../../helpers/validators');
 
 const validateOrganizationData = async (data) => {

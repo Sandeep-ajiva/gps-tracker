@@ -1,17 +1,29 @@
 const jwt = require("jsonwebtoken");
 const User = require("../Modules/users/model");
 
-const JWT_SECRET = process.env.SECRET_KEY;
+const JWT_SECRET = process.env.JWT_SECRET;
+
+console.log("VERIFY SECRET:", JWT_SECRET);
 
 const requireAuth = async (req, res, next) => {
   try {
-    const token = req.headers.authorization;
+    const authHeader = req.headers.authorization;
 
-    if (!token) {
-      return res.status(401).json({ status: false, message: 'Unauthorized Token: No token provided' });
+    // 🔥 STEP 1: Check header + Bearer
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      return res.status(401).json({
+        status: false,
+        message: "Unauthorized: Token missing or malformed",
+      });
     }
 
+    // 🔥 STEP 2: Extract actual token
+    const token = authHeader.split(" ")[1];
+
+    // 🔥 STEP 3: Verify token
     const decoded = jwt.verify(token, JWT_SECRET);
+
+    // 🔥 STEP 4: Find user
     const user = await User.findById(decoded.userId);
 
     if (!user) {
@@ -28,7 +40,7 @@ const requireAuth = async (req, res, next) => {
       });
     }
 
-    // 5️⃣ Attach ONLY required fields to req.user
+    // 🔥 STEP 5: Attach clean user object
     req.user = {
       _id: user._id,
       role: user.role,
@@ -36,9 +48,10 @@ const requireAuth = async (req, res, next) => {
       assignedVehicleId: user.assignedVehicleId || null,
     };
 
-    // 6️⃣ Proceed
     next();
   } catch (error) {
+    console.error("JWT Error:", error.message);
+
     return res.status(401).json({
       status: false,
       message: "Unauthorized: Invalid or expired token",

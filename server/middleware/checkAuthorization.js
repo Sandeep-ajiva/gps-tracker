@@ -1,27 +1,21 @@
-// module.exports = checkAuthorization;
 const permissions = require("../config/permissions.json");
 
-// HTTP method to action mapping
+// HTTP method → action mapping
 const methodToAction = {
   POST: "create",
   GET: "read",
   PUT: "update",
   DELETE: "delete",
+  PATCH: "update"
 };
 
-// Helper to extract module from request URL
+// Extract module name from URL: /api/<module>/...
 const extractModuleFromUrl = (url) => {
-  const parts = url.split("/").filter(Boolean); // Remove empty strings
+  const parts = url.split("/").filter(Boolean);
   const apiIndex = parts.indexOf("api");
-  if (apiIndex !== -1 && parts.length > apiIndex + 1) {
-    return parts[apiIndex + 1]; // /api/<module>/...
-  }
-  return null;
-};
-
-// Helper to check if user belongs to department or sub-department
-const isUserInDepartment = (userDepartments, dataDepartmentId) => {
-  return userDepartments.includes(dataDepartmentId);
+  return apiIndex !== -1 && parts[apiIndex + 1]
+    ? parts[apiIndex + 1]
+    : null;
 };
 
 const checkAuthorization = (
@@ -29,81 +23,74 @@ const checkAuthorization = (
   module = null,
   customAction = null
 ) => {
-  return async (req, res, next) => {
-    const user = req.user;
+  return (req, res, next) => {
+    try {
+      const user = req.user;
 
-    if (!user || !user.role) {
-      return res
-        .status(401)
-        .json({ status: false, message: "Unauthorized: No user role found" });
-    }
-
-    const userRole = user.role;
-
-    allowedRoles = Array.isArray(allowedRoles) ? allowedRoles : [allowedRoles];
-    // Always allow super_admin by default
-    const allRoles = [...allowedRoles, "super_admin"];
-    if (!allRoles.includes(userRole)) {
-      return res
-        .status(403)
-        .json({ status: false, message: "Forbidden: Role not allowed" });
-    }
-
-    // Dynamically determine module and action
-    const resolvedModule = module || extractModuleFromUrl(req.originalUrl);
-    const resolvedAction = customAction || methodToAction[req.method];
-
-    if (resolvedModule && resolvedAction) {
-      const rolePermissions = permissions[userRole]?.modules;
-
-      // Check for global permissions for the module
-      if (
-        !rolePermissions ||
-        !rolePermissions[resolvedModule] ||
-        !rolePermissions[resolvedModule].includes(resolvedAction)
-      ) {
-        return res.status(403).json({
-          status: "error",
-          message: `Forbidden: ${userRole} does not have '${resolvedAction}' access to '${resolvedModule}'`,
+      // 1️⃣ User must be authenticated
+      if (!user || !user.role) {
+        return res.status(401).json({
+          status: false,
+          message: "Unauthorized: No user context found",
         });
       }
 
-      // Now, check if user can access data based on their department/sub-department
+      const userRole = user.role;
+
+      // 2️⃣ Role-level access (route-level)
+      allowedRoles = Array.isArray(allowedRoles)
+        ? allowedRoles
+        : [allowedRoles];
+
+      // Superadmin always allowed
       if (
-        resolvedAction === "read" ||
-        resolvedAction === "update" ||
-        resolvedAction === "delete"
+        allowedRoles.length > 0 &&
+        userRole !== "superadmin" &&
+        !allowedRoles.includes(userRole)
       ) {
-        // Assume `data` in the route corresponds to the departmentId/subDepartmentId
-        const dataDepartmentId =
-          req.body.departmentId || req.params.departmentId; // Adjust based on your schema
-        if (
-          dataDepartmentId &&
-          !isUserInDepartment(user.departments, dataDepartmentId)
-        ) {
-          return res.status(403).json({
-            status: "error",
-            message: `Forbidden: User does not have access to ${resolvedAction} data for the department`,
-          });
-        }
+        return res.status(403).json({
+          status: false,
+          message: "Forbidden: Role not allowed for this route",
+        });
       }
 
-      // Check for sub-department-level permissions if needed
-      if (resolvedAction === "create") {
-        const dataSubDepartmentId = req.body.subDepartmentId;
-        if (
-          dataSubDepartmentId &&
-          !isUserInDepartment(user.departments, dataSubDepartmentId)
-        ) {
-          return res.status(403).json({
-            status: "error",
-            message: `Forbidden: User cannot create data in this sub-department`,
-          });
-        }
+      // 3️⃣ Resolve module & action
+      const resolvedModule =
+        module || extractModuleFromUrl(req.originalUrl);
+
+      const resolvedAction =
+        customAction || methodToAction[req.method];
+
+      if (!resolvedModule || !resolvedAction) {
+        return res.status(403).json({
+          status: false,
+          message: "Forbidden: Unable to resolve permission context",
+        });
       }
+
+      // 4️⃣ Permission check from permissions.json
+      const rolePermissions = permissions[userRole]?.modules;
+
+      if (
+        !rolePermissions ||
+        !Array.isArray(rolePermissions[resolvedModule]) ||
+        !rolePermissions[resolvedModule].includes(resolvedAction)
+      ) {
+        return res.status(403).json({
+          status: false,
+          message: `Forbidden: ${userRole} cannot ${resolvedAction} ${resolvedModule}`,
+        });
+      }
+
+      // ✅ Permission passed
+      next();
+    } catch (err) {
+      console.error("Authorization Error:", err);
+      return res.status(500).json({
+        status: false,
+        message: "Internal authorization error",
+      });
     }
-
-    next();
   };
 };
 

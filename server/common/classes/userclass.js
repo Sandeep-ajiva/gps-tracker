@@ -1,4 +1,6 @@
 const UserModel = require("../classes/Model");
+
+
 const SECRET_KEY = process.env.JWT_SECRET;
 class User {
   constructor(first_name, last_name, email, phone, password, role) {
@@ -15,7 +17,7 @@ class User {
   }
   // Check if a role is allowed
   static isRoleAllowed(role) {
-    return this.ALLOWED_ROLES.includes(role);
+    return this.ALLOWED_ROLES.includes(role); 
   }
   // Save user details to MongoDB
   async save() {

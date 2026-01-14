@@ -24,7 +24,7 @@ const gpsLiveDataSchema = {
   longitude: Number,
   speed: Number,
   ignition: Boolean,
-
+  
   updatedAt: {
     type: Date,
     default: Date.now,

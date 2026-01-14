@@ -8,17 +8,20 @@ const vehicleSchema = {
     required: true,
   },
 
+  vehicleType: {
+    type: String,
+    enum: ["car", "bus", "truck", "bike", "other"],
+    required: true,
+  },
+
   vehicleNumber: {
     type: String,
-    required: true,
+    required: function(){
+      return ["car", "bus", "truck", "bike"].includes(this.vehicleType);
+    },
     trim: true,
   },
 
-  vehicleType: {
-    type: String,
-    enum: ["car", "bus", "truck"],
-    required: true,
-  },
 
   model: {
     type: String,

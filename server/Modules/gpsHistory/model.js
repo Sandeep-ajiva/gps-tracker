@@ -20,10 +20,19 @@ const gpsHistorySchema = {
     required: true,
   },
 
-  latitude: Number,
-  longitude: Number,
-  speed: Number,
-  ignition: Boolean,
+  location: {
+    type: {
+      type: String,
+      enum: ["Point"],
+      default: "Point",
+    },
+    coordinates: {
+      type: [Number], // [longitude, latitude]
+      required: true,
+    },
+    speed: Number,
+    ignition: Boolean,
+  },
 
   recordedAt: {
     type: Date,
@@ -31,9 +40,6 @@ const gpsHistorySchema = {
   },
 };
 
-const GpsHistoryModel = new ajModel(
-  "GpsHistory",
-  gpsHistorySchema
-).getModel();
+const GpsHistoryModel = new ajModel("GpsHistory", gpsHistorySchema).getModel();
 
 module.exports = GpsHistoryModel;

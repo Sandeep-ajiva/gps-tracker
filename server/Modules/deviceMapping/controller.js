@@ -11,7 +11,7 @@ const Validator = require("../../helpers/validators");
 const validateAssign = async (data) => {
   const rules = {
     vehicleId: "required|string",
-    deviceId: "required|string",
+    gpsDeviceId: "required|string",
   };
 
   const validator = new Validator(data, rules);
@@ -19,26 +19,26 @@ const validateAssign = async (data) => {
 };
 
 /* --------------------------------------------------
-   ASSIGN GPS DEVICE TO VEHICLE (CREATE MAPPING)
+   ASSIGN GPS DEVICE TO VEHICLE
 -------------------------------------------------- */
 exports.assign = async (req, res) => {
   try {
     await validateAssign(req.body);
 
-    const { vehicleId, deviceId } = req.body;
+    const { vehicleId, gpsDeviceId } = req.body;
 
     if (
       !mongoose.isValidObjectId(vehicleId) ||
-      !mongoose.isValidObjectId(deviceId)
+      !mongoose.isValidObjectId(gpsDeviceId)
     ) {
       return res.status(400).json({
         status: false,
-        message: "Invalid vehicle or device ID",
+        message: "Invalid vehicle or GPS device ID",
       });
     }
 
     const vehicle = await VehicleModel.findById(vehicleId);
-    const device = await GpsDeviceModel.findById(deviceId);
+    const device = await GpsDeviceModel.findById(gpsDeviceId);
 
     if (!vehicle || !device) {
       return res.status(404).json({
@@ -47,25 +47,25 @@ exports.assign = async (req, res) => {
       });
     }
 
-    if (device.status !== "available") {
+    if (device.status !== "stock") {
       return res.status(400).json({
         status: false,
-        message: "GPS device is not available",
+        message: "GPS device is not in stock",
       });
     }
 
-    // Create mapping
+    // Create mapping (IMPORTANT: use schema field names)
     const mapping = new VehicleDeviceMappingModel({
-      vehicle: vehicleId,
-      device: deviceId,
-      assignedBy: req.user.id,
+      vehicleId,
+      gpsDeviceId,
+      organizationId: vehicle.organizationId || null,
       assignedAt: new Date(),
       isActive: true,
     });
 
     await mapping.save();
 
-    // Update device state
+    // Update device status
     device.status = "assigned";
     device.assignedVehicle = vehicleId;
     await device.save();
@@ -83,35 +83,41 @@ exports.assign = async (req, res) => {
         errors: error.errors,
       });
     }
-    res.status(500).json({ status: false, message: error.message });
+
+    res.status(500).json({
+      status: false,
+      message: error.message,
+    });
   }
 };
 
 /* --------------------------------------------------
-   GET ALL MAPPINGS (HISTORY + FILTERS)
+   GET ALL MAPPINGS (LIST + FILTERS)
 -------------------------------------------------- */
 exports.getAll = async (req, res) => {
   try {
-    const { vehicle, device, page, limit, search } = req.query;
+    const { vehicleId, gpsDeviceId, page, limit, search } = req.query;
 
-    let filter = {};
-
-    if (vehicle) filter.vehicle = vehicle;
-    if (device) filter.device = device;
+    const filter = {};
+    if (vehicleId) filter.vehicleId = vehicleId;
+    if (gpsDeviceId) filter.gpsDeviceId = gpsDeviceId;
 
     const result = await paginate(
       VehicleDeviceMappingModel,
       filter,
       page,
       limit,
-      ["vehicle", "device"],
+      ["vehicleId", "gpsDeviceId"],
       [],
       search
     );
 
     res.status(200).json(result);
   } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+    res.status(500).json({
+      status: false,
+      message: error.message,
+    });
   }
 };
 
@@ -123,12 +129,15 @@ exports.getById = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ status: false, message: "Invalid ID" });
+      return res.status(400).json({
+        status: false,
+        message: "Invalid mapping ID",
+      });
     }
 
     const mapping = await VehicleDeviceMappingModel.findById(id)
-      .populate("vehicle")
-      .populate("device");
+      .populate("vehicleId")
+      .populate("gpsDeviceId");
 
     if (!mapping) {
       return res.status(404).json({
@@ -137,9 +146,15 @@ exports.getById = async (req, res) => {
       });
     }
 
-    res.status(200).json({ status: true, data: mapping });
+    res.status(200).json({
+      status: true,
+      data: mapping,
+    });
   } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+    res.status(500).json({
+      status: false,
+      message: error.message,
+    });
   }
 };
 
@@ -151,11 +166,14 @@ exports.getByVehicle = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ status: false, message: "Invalid vehicle ID" });
+      return res.status(400).json({
+        status: false,
+        message: "Invalid vehicle ID",
+      });
     }
 
-    const mappings = await VehicleDeviceMappingModel.find({ vehicle: id })
-      .populate("device")
+    const mappings = await VehicleDeviceMappingModel.find({ vehicleId: id })
+      .populate("gpsDeviceId")
       .sort({ assignedAt: -1 });
 
     res.status(200).json({
@@ -163,7 +181,10 @@ exports.getByVehicle = async (req, res) => {
       data: mappings,
     });
   } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+    res.status(500).json({
+      status: false,
+      message: error.message,
+    });
   }
 };
 
@@ -175,11 +196,14 @@ exports.getByDevice = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ status: false, message: "Invalid device ID" });
+      return res.status(400).json({
+        status: false,
+        message: "Invalid GPS device ID",
+      });
     }
 
-    const mappings = await VehicleDeviceMappingModel.find({ device: id })
-      .populate("vehicle")
+    const mappings = await VehicleDeviceMappingModel.find({ gpsDeviceId: id })
+      .populate("vehicleId")
       .sort({ assignedAt: -1 });
 
     res.status(200).json({
@@ -187,7 +211,10 @@ exports.getByDevice = async (req, res) => {
       data: mappings,
     });
   } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+    res.status(500).json({
+      status: false,
+      message: error.message,
+    });
   }
 };
 
@@ -207,13 +234,10 @@ exports.unassign = async (req, res) => {
 
     mapping.isActive = false;
     mapping.unassignedAt = new Date();
-    mapping.unassignedBy = req.user.id;
-
     await mapping.save();
 
-    // Update device back to stock
-    await GpsDeviceModel.findByIdAndUpdate(mapping.device, {
-      status: "available",
+    await GpsDeviceModel.findByIdAndUpdate(mapping.gpsDeviceId, {
+      status: "stock",
       assignedVehicle: null,
     });
 
@@ -222,12 +246,15 @@ exports.unassign = async (req, res) => {
       message: "GPS device unassigned successfully",
     });
   } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+    res.status(500).json({
+      status: false,
+      message: error.message,
+    });
   }
 };
 
 /* --------------------------------------------------
-   HARD DELETE MAPPING (SUPER ADMIN)
+   HARD DELETE MAPPING
 -------------------------------------------------- */
 exports.remove = async (req, res) => {
   try {
@@ -247,6 +274,9 @@ exports.remove = async (req, res) => {
       message: "Mapping permanently deleted",
     });
   } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+    res.status(500).json({
+      status: false,
+      message: error.message,
+    });
   }
 };

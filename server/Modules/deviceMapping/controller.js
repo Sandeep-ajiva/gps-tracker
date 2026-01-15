@@ -1,26 +1,21 @@
 const mongoose = require("mongoose");
-const VehicleDeviceMappingModel = require("./model");
+const MappingModel = require("./model");
 const VehicleModel = require("../vehicle/model");
 const GpsDeviceModel = require("../gpsDevice/model");
 const paginate = require("../../helpers/limitoffset");
 const Validator = require("../../helpers/validators");
 
-/* --------------------------------------------------
-   VALIDATION
--------------------------------------------------- */
+/* ---------------- VALIDATION ---------------- */
 const validateAssign = async (data) => {
   const rules = {
     vehicleId: "required|string",
     deviceId: "required|string",
   };
-
   const validator = new Validator(data, rules);
   await validator.validate();
 };
 
-/* --------------------------------------------------
-   ASSIGN GPS DEVICE TO VEHICLE (CREATE MAPPING)
--------------------------------------------------- */
+/* ---------------- ASSIGN ---------------- */
 exports.assign = async (req, res) => {
   try {
     await validateAssign(req.body);
@@ -31,222 +26,181 @@ exports.assign = async (req, res) => {
       !mongoose.isValidObjectId(vehicleId) ||
       !mongoose.isValidObjectId(deviceId)
     ) {
-      return res.status(400).json({
-        status: false,
-        message: "Invalid vehicle or device ID",
-      });
+      return res.status(400).json({ message: "Invalid IDs" });
     }
 
     const vehicle = await VehicleModel.findById(vehicleId);
     const device = await GpsDeviceModel.findById(deviceId);
 
     if (!vehicle || !device) {
-      return res.status(404).json({
-        status: false,
-        message: "Vehicle or GPS device not found",
-      });
+      return res.status(404).json({ message: "Vehicle or Device not found" });
     }
 
-    if (device.status !== "available") {
-      return res.status(400).json({
-        status: false,
-        message: "GPS device is not available",
-      });
+    // 🔒 ORG CHECK
+    if (
+      req.user.role !== "superadmin" &&
+      (vehicle.organizationId.toString() !== req.orgId.toString() ||
+        device.organizationId.toString() !== req.orgId.toString())
+    ) {
+      return res.status(403).json({ message: "Forbidden" });
     }
 
-    // Create mapping
-    const mapping = new VehicleDeviceMappingModel({
+    // 1 DEVICE → 1 VEHICLE
+    const activeDeviceMap = await MappingModel.findOne({
+      device: deviceId,
+      isActive: true,
+    });
+    if (activeDeviceMap) {
+      return res.status(400).json({ message: "Device already assigned" });
+    }
+
+    // 1 VEHICLE → 1 DEVICE
+    const activeVehicleMap = await MappingModel.findOne({
+      vehicle: vehicleId,
+      isActive: true,
+    });
+    if (activeVehicleMap) {
+      return res.status(400).json({ message: "Vehicle already has a device" });
+    }
+
+    if (device.status !== "stock") {
+      return res.status(400).json({ message: "Device not available" });
+    }
+
+    const mapping = await MappingModel.create({
       vehicle: vehicleId,
       device: deviceId,
-      assignedBy: req.user.id,
+      organizationId: vehicle.organizationId,
+      assignedBy: req.user.userId,
       assignedAt: new Date(),
       isActive: true,
     });
 
-    await mapping.save();
-
-    // Update device state
     device.status = "assigned";
     device.assignedVehicle = vehicleId;
     await device.save();
 
     res.status(201).json({
       status: true,
-      message: "GPS device assigned to vehicle",
+      message: "Device assigned to vehicle",
       data: mapping,
     });
   } catch (error) {
-    if (error.errors) {
-      return res.status(400).json({
-        status: false,
-        message: "Validation failed",
-        errors: error.errors,
-      });
-    }
-    res.status(500).json({ status: false, message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-/* --------------------------------------------------
-   GET ALL MAPPINGS (HISTORY + FILTERS)
--------------------------------------------------- */
+/* ---------------- GET ALL ---------------- */
 exports.getAll = async (req, res) => {
-  try {
-    const { vehicle, device, page, limit, search } = req.query;
+  const filter = {};
 
-    let filter = {};
-
-    if (vehicle) filter.vehicle = vehicle;
-    if (device) filter.device = device;
-
-    const result = await paginate(
-      VehicleDeviceMappingModel,
-      filter,
-      page,
-      limit,
-      ["vehicle", "device"],
-      [],
-      search
-    );
-
-    res.status(200).json(result);
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (req.user.role !== "superadmin") {
+    filter.organizationId = req.orgId;
   }
+
+  const result = await paginate(
+    MappingModel,
+    filter,
+    req.query.page,
+    req.query.limit,
+    ["vehicle", "device"],
+    [],
+    req.query.search
+  );
+
+  res.json(result);
 };
 
-/* --------------------------------------------------
-   GET MAPPING BY ID
--------------------------------------------------- */
+/* ---------------- GET BY ID ---------------- */
 exports.getById = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const mapping = await MappingModel.findById(req.params.id)
+    .populate("vehicle")
+    .populate("device");
 
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ status: false, message: "Invalid ID" });
-    }
+  if (!mapping) return res.status(404).json({ message: "Not found" });
 
-    const mapping = await VehicleDeviceMappingModel.findById(id)
-      .populate("vehicle")
-      .populate("device");
-
-    if (!mapping) {
-      return res.status(404).json({
-        status: false,
-        message: "Mapping not found",
-      });
-    }
-
-    res.status(200).json({ status: true, data: mapping });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (
+    req.user.role !== "superadmin" &&
+    mapping.organizationId.toString() !== req.orgId.toString()
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
   }
+
+  res.json({ status: true, data: mapping });
 };
 
-/* --------------------------------------------------
-   GET DEVICE HISTORY OF A VEHICLE
--------------------------------------------------- */
+/* ---------------- GET BY VEHICLE ---------------- */
 exports.getByVehicle = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const vehicle = await VehicleModel.findById(req.params.id);
+  if (!vehicle) return res.status(404).json({ message: "Vehicle not found" });
 
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ status: false, message: "Invalid vehicle ID" });
-    }
-
-    const mappings = await VehicleDeviceMappingModel.find({ vehicle: id })
-      .populate("device")
-      .sort({ assignedAt: -1 });
-
-    res.status(200).json({
-      status: true,
-      data: mappings,
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (
+    req.user.role !== "superadmin" &&
+    vehicle.organizationId.toString() !== req.orgId.toString()
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
   }
+
+  const mappings = await MappingModel.find({ vehicle: req.params.id })
+    .populate("device")
+    .sort({ assignedAt: -1 });
+
+  res.json({ status: true, data: mappings });
 };
 
-/* --------------------------------------------------
-   GET VEHICLE HISTORY OF A DEVICE
--------------------------------------------------- */
+/* ---------------- GET BY DEVICE ---------------- */
 exports.getByDevice = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const device = await GpsDeviceModel.findById(req.params.id);
+  if (!device) return res.status(404).json({ message: "Device not found" });
 
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ status: false, message: "Invalid device ID" });
-    }
-
-    const mappings = await VehicleDeviceMappingModel.find({ device: id })
-      .populate("vehicle")
-      .sort({ assignedAt: -1 });
-
-    res.status(200).json({
-      status: true,
-      data: mappings,
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (
+    req.user.role !== "superadmin" &&
+    device.organizationId.toString() !== req.orgId.toString()
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
   }
+
+  const mappings = await MappingModel.find({ device: req.params.id })
+    .populate("vehicle")
+    .sort({ assignedAt: -1 });
+
+  res.json({ status: true, data: mappings });
 };
 
-/* --------------------------------------------------
-   UNASSIGN GPS DEVICE
--------------------------------------------------- */
+/* ---------------- UNASSIGN ---------------- */
 exports.unassign = async (req, res) => {
-  try {
-    const mapping = await VehicleDeviceMappingModel.findById(req.params.id);
+  const mapping = await MappingModel.findById(req.params.id);
 
-    if (!mapping || !mapping.isActive) {
-      return res.status(404).json({
-        status: false,
-        message: "Active mapping not found",
-      });
-    }
-
-    mapping.isActive = false;
-    mapping.unassignedAt = new Date();
-    mapping.unassignedBy = req.user.id;
-
-    await mapping.save();
-
-    // Update device back to stock
-    await GpsDeviceModel.findByIdAndUpdate(mapping.device, {
-      status: "available",
-      assignedVehicle: null,
-    });
-
-    res.status(200).json({
-      status: true,
-      message: "GPS device unassigned successfully",
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (!mapping || !mapping.isActive) {
+    return res.status(404).json({ message: "Active mapping not found" });
   }
+
+  if (
+    req.user.role !== "superadmin" &&
+    mapping.organizationId.toString() !== req.orgId.toString()
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
+  }
+
+  mapping.isActive = false;
+  mapping.unassignedAt = new Date();
+  mapping.unassignedBy = req.user.userId;
+  await mapping.save();
+
+  await GpsDeviceModel.findByIdAndUpdate(mapping.device, {
+    status: "stock",
+    assignedVehicle: null,
+  });
+
+  res.json({ status: true, message: "Device unassigned" });
 };
 
-/* --------------------------------------------------
-   HARD DELETE MAPPING (SUPER ADMIN)
--------------------------------------------------- */
+/* ---------------- DELETE (SUPERADMIN) ---------------- */
 exports.remove = async (req, res) => {
-  try {
-    const mapping = await VehicleDeviceMappingModel.findByIdAndDelete(
-      req.params.id
-    );
-
-    if (!mapping) {
-      return res.status(404).json({
-        status: false,
-        message: "Mapping not found",
-      });
-    }
-
-    res.status(200).json({
-      status: true,
-      message: "Mapping permanently deleted",
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (req.user.role !== "superadmin") {
+    return res.status(403).json({ message: "Forbidden" });
   }
+
+  await MappingModel.findByIdAndDelete(req.params.id);
+  res.json({ status: true, message: "Mapping deleted permanently" });
 };

@@ -4,61 +4,60 @@ const VehicleModel = require("../vehicle/model");
 const paginate = require("../../helpers/limitoffset");
 const Validator = require("../../helpers/validators");
 
-/* --------------------------------------------------
-   VALIDATION
--------------------------------------------------- */
+/* ---------------- VALIDATION ---------------- */
 const validateGpsDevice = async (data, isUpdate = false) => {
   const rules = {
     imei: isUpdate ? "string|min:10" : "required|string|min:10",
     model: "required|string|min:2",
     vendor: "string",
-    // status: "in:assigned,faulty,stock",
   };
 
   const validator = new Validator(data, rules);
   await validator.validate();
 };
 
-/* --------------------------------------------------
-   CREATE GPS DEVICE (STOCK ENTRY)
--------------------------------------------------- */
+/* ---------------- CREATE ---------------- */
 exports.create = async (req, res) => {
   try {
     await validateGpsDevice(req.body);
 
-    const device = new GpsDeviceModel({
-      ...req.body,
-      status: "stock",
-      createdBy: req.user?.id || null,
-    });
+    const organizationId =
+      req.user.role === "superadmin"
+        ? req.body.organizationId
+        : req.orgId;
 
-    await device.save();
+    if (!organizationId) {
+      return res.status(400).json({ message: "OrganizationId required" });
+    }
+
+    const device = await GpsDeviceModel.create({
+      ...req.body,
+      organizationId,
+      status: "stock",
+      isActive: true,
+      createdBy: req.user.userId,
+    });
 
     res.status(201).json({
       status: true,
-      message: "GPS device added to stock",
+      message: "GPS device added",
       data: device,
     });
   } catch (error) {
-    if (error.errors) {
-      return res.status(400).json({
-        status: false,
-        message: "Validation failed",
-        errors: error.errors,
-      });
-    }
-    res.status(500).json({ status: false, message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-/* --------------------------------------------------
-   GET ALL GPS DEVICES (LIST + FILTERS)
--------------------------------------------------- */
+/* ---------------- GET ALL ---------------- */
 exports.getAll = async (req, res) => {
   try {
     const { status, model, vendor, page, limit, search } = req.query;
 
-    let filter = { isActive: true };
+    const filter = { isActive: true };
+
+    if (req.user.role !== "superadmin") {
+      filter.organizationId = req.orgId;
+    }
 
     if (status) filter.status = status;
     if (model) filter.model = model;
@@ -74,212 +73,138 @@ exports.getAll = async (req, res) => {
       search
     );
 
-    res.status(200).json(result);
+    res.json(result);
   } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
-/* --------------------------------------------------
-   GET DEVICE BY ID
--------------------------------------------------- */
+/* ---------------- GET AVAILABLE ---------------- */
+exports.getAvailable = async (req, res) => {
+  const filter = {
+    status: "stock",
+    isActive: true,
+  };
+
+  if (req.user.role !== "superadmin") {
+    filter.organizationId = req.orgId;
+  }
+
+  const devices = await GpsDeviceModel.find(filter);
+  res.json({ status: true, data: devices });
+};
+
+/* ---------------- GET BY ID ---------------- */
 exports.getById = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const device = await GpsDeviceModel.findById(req.params.id);
 
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ status: false, message: "Invalid ID" });
-    }
+  if (!device) return res.status(404).json({ message: "Not found" });
 
-    const device = await GpsDeviceModel.findById(id).populate(
-      "assignedVehicle"
-    );
-
-    if (!device) {
-      return res
-        .status(404)
-        .json({ status: false, message: "Device not found" });
-    }
-
-    res.status(200).json({ status: true, data: device });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (
+    req.user.role !== "superadmin" &&
+    device.organizationId.toString() !== req.orgId.toString()
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
   }
+
+  res.json({ status: true, data: device });
 };
 
-/* --------------------------------------------------
-   UPDATE DEVICE
--------------------------------------------------- */
+/* ---------------- UPDATE ---------------- */
 exports.update = async (req, res) => {
-  try {
-    await validateGpsDevice(req.body, true);
+  const device = await GpsDeviceModel.findById(req.params.id);
+  if (!device) return res.status(404).json({ message: "Not found" });
 
-    const device = await GpsDeviceModel.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-
-    if (!device) {
-      return res
-        .status(404)
-        .json({ status: false, message: "Device not found" });
-    }
-
-    res.status(200).json({
-      status: true,
-      message: "Device updated successfully",
-      data: device,
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (
+    req.user.role !== "superadmin" &&
+    device.organizationId.toString() !== req.orgId.toString()
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
   }
+
+  Object.assign(device, req.body);
+  await device.save();
+
+  res.json({ status: true, message: "Updated", data: device });
 };
 
-/* --------------------------------------------------
-   MARK DEVICE AS FAULTY
--------------------------------------------------- */
-exports.markFaulty = async (req, res) => {
-  try {
-    const device = await GpsDeviceModel.findById(req.params.id);
-
-    if (!device) {
-      return res
-        .status(404)
-        .json({ status: false, message: "Device not found" });
-    }
-
-    device.status = "faulty";
-    device.assignedVehicle = null;
-
-    await device.save();
-
-    res.status(200).json({
-      status: true,
-      message: "Device marked as faulty",
-      data: device,
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
-  }
-};
-
-/* --------------------------------------------------
-   ASSIGN DEVICE TO VEHICLE
--------------------------------------------------- */
+/* ---------------- ASSIGN ---------------- */
 exports.assignToVehicle = async (req, res) => {
-  try {
-    const { vehicleId } = req.body;
+  const { vehicleId } = req.body;
 
-    if (!mongoose.isValidObjectId(vehicleId)) {
-      return res
-        .status(400)
-        .json({ status: false, message: "Invalid vehicle ID" });
-    }
+  const device = await GpsDeviceModel.findById(req.params.id);
+  const vehicle = await VehicleModel.findById(vehicleId);
 
-    const device = await GpsDeviceModel.findById(req.params.id);
-    const vehicle = await VehicleModel.findById(vehicleId);
+  if (!device || !vehicle)
+    return res.status(404).json({ message: "Device or Vehicle not found" });
 
-    if (!device || !vehicle) {
-      return res
-        .status(404)
-        .json({ status: false, message: "Device or vehicle not found" });
-    }
-
-    if (device.status !== "available") {
-      return res
-        .status(400)
-        .json({ status: false, message: "Device not available" });
-    }
-
-    device.status = "assigned";
-    device.assignedVehicle = vehicleId;
-    device.assignedAt = new Date();
-
-    await device.save();
-
-    res.status(200).json({
-      status: true,
-      message: "Device assigned to vehicle",
-      data: device,
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (
+    req.user.role !== "superadmin" &&
+    (device.organizationId.toString() !== req.orgId.toString() ||
+      vehicle.organizationId.toString() !== req.orgId.toString())
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
   }
+
+  if (device.status !== "stock") {
+    return res.status(400).json({ message: "Device not available" });
+  }
+
+  device.status = "assigned";
+  device.assignedVehicle = vehicleId;
+  device.assignedAt = new Date();
+
+  await device.save();
+
+  res.json({ status: true, message: "Assigned", data: device });
 };
 
-/* --------------------------------------------------
-   UNASSIGN DEVICE
--------------------------------------------------- */
+/* ---------------- UNASSIGN ---------------- */
 exports.unassignFromVehicle = async (req, res) => {
-  try {
-    const device = await GpsDeviceModel.findById(req.params.id);
+  const device = await GpsDeviceModel.findById(req.params.id);
 
-    if (!device) {
-      return res
-        .status(404)
-        .json({ status: false, message: "Device not found" });
-    }
+  if (!device) return res.status(404).json({ message: "Not found" });
 
-    device.status = "stock";
-    device.assignedVehicle = null;
-
-    await device.save();
-
-    res.status(200).json({
-      status: true,
-      message: "Device unassigned successfully",
-      data: device,
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (
+    req.user.role !== "superadmin" &&
+    device.organizationId.toString() !== req.orgId.toString()
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
   }
+
+  device.status = "stock";
+  device.assignedVehicle = null;
+
+  await device.save();
+
+  res.json({ status: true, message: "Unassigned" });
 };
 
-/* --------------------------------------------------
-   SOFT DELETE (DEACTIVATE)
--------------------------------------------------- */
+/* ---------------- DEACTIVATE ---------------- */
 exports.deactivate = async (req, res) => {
-  try {
-    const device = await GpsDeviceModel.findByIdAndUpdate(
-      req.params.id,
-      { isActive: false },
-      { new: true }
-    );
+  const device = await GpsDeviceModel.findById(req.params.id);
 
-    if (!device) {
-      return res
-        .status(404)
-        .json({ status: false, message: "Device not found" });
-    }
+  if (!device) return res.status(404).json({ message: "Not found" });
 
-    res.status(200).json({
-      status: true,
-      message: "Device deactivated",
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (
+    req.user.role !== "superadmin" &&
+    device.organizationId.toString() !== req.orgId.toString()
+  ) {
+    return res.status(403).json({ message: "Forbidden" });
   }
+
+  device.isActive = false;
+  await device.save();
+
+  res.json({ status: true, message: "Deactivated" });
 };
 
-/* --------------------------------------------------
-   HARD DELETE (SUPER ADMIN)
--------------------------------------------------- */
+/* ---------------- DELETE (SUPERADMIN) ---------------- */
 exports.remove = async (req, res) => {
-  try {
-    const result = await GpsDeviceModel.findByIdAndDelete(req.params.id);
-
-    if (!result) {
-      return res
-        .status(404)
-        .json({ status: false, message: "Device not found" });
-    }
-
-    res.status(200).json({
-      status: true,
-      message: "Device permanently deleted",
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
+  if (req.user.role !== "superadmin") {
+    return res.status(403).json({ message: "Forbidden" });
   }
+
+  await GpsDeviceModel.findByIdAndDelete(req.params.id);
+  res.json({ status: true, message: "Deleted permanently" });
 };

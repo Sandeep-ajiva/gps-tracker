@@ -1,73 +1,74 @@
-//  POST    api/vehicles                    for create vehicles
-//  GET     api/vehicles                    for get vehicles (list + filters)
-//  GET     /api/vehicles/:id               for get vehicle by id
-//  PUT     /api/vehicles/:id               for update vehicle details
-//  PATCH   /api/vehicles/:id/deactivate    for soft delete vehicle
-//  Delete  /api/vehicle/:id                for hard delete vehicle (Only super admin)
-
 const express = require("express");
 const router = express.Router();
 
-// Middlewares file imports
-const VehicleController = require("./controller");
 const verifyToken = require("../../middleware/verifyToken");
+const checkOrganization = require("../../middleware/checkOrganization");
 const checkAuthorization = require("../../middleware/checkAuthorization");
 
-// vehicle routes
+const Controller = require('./controller')
 
 // create vehicle
 router.post(
   "/",
-  verifyToken,
-  checkAuthorization(["admin", "super_admin"], "vehicles", "create"),
-  VehicleController.create
+  verifyToken,  
+  checkAuthorization(["admin", "superadmin"], "vehicle", "create"),
+  checkOrganization,
+  Controller.create
 );
 
-// Get vehicle
+// get all vehicles
 router.get(
   "/",
   verifyToken,
-  checkAuthorization(["admin", "super_admin"], "vehicles", "read"),
-  VehicleController.getAll
+  checkAuthorization(["admin", "superadmin"], "vehicle", "read"),
+  checkOrganization,
+  Controller.getAll
 );
 
-// Get by Id Vehicle
+// get vehicle by id
 router.get(
   "/:id",
   verifyToken,
-  checkAuthorization(["admin", "super_admin"], "vehicles", "read"),
-  VehicleController.getById
+  checkAuthorization(["admin", "superadmin"], "vehicle", "read"),
+  checkOrganization,
+  Controller.getById
 );
 
-// PUT for update vehile details
+// update vehicle
 router.put(
   "/:id",
   verifyToken,
-  checkAuthorization(["admin", "super_admin"], "vehicles", "update"),
-  VehicleController.update
+  checkAuthorization(["admin", "superadmin"], "vehicle", "update"),
+  checkOrganization,
+  Controller.update
 );
 
-// SOFT DELETE (deactivate vehicle)
-// PATCH /api/vehicles/:id/deactivate
+// deactivate vehicle
 router.patch(
   "/:id/deactivate",
   verifyToken,
-  checkAuthorization(["admin", "super_admin"], "vehicles", "update"),
-  VehicleController.deactivate
+  checkAuthorization(["admin", "superadmin"], "vehicle", "update"),
+  checkOrganization,
+  Controller.deactivate
 );
 
-// PATCH /api/vehicles/:id/active
-router.patch("/:id/active",
-  VehicleController.updateStatus
+// activate vehicle (MISSING AUTH ❌)
+router.patch(
+  "/:id/active",
+  verifyToken,
+  checkAuthorization(["admin", "superadmin"], "vehicle", "update"),
+  checkOrganization,
+  Controller.updateStatus
 );
 
-// HARD DELETE (super admin only)
-// DELETE /api/vehicles/:id
+// hard delete (superadmin only)
 router.delete(
   "/:id",
   verifyToken,
-  checkAuthorization(["super_admin"], "vehicles", "delete"),
-  VehicleController.remove
+  checkAuthorization(["superadmin"], "vehicle", "delete"),
+  checkOrganization,
+  Controller.remove
 );
 
-module.exports = router;
+
+module.exports = router;    

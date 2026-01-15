@@ -1,67 +1,66 @@
 const mongoose = require("mongoose");
 const VehicleModel = require("./model");
 const paginate = require("../../helpers/limitoffset");
-const Validator = require("../../helpers/validators");
 
-/**
- * =========================
- * VALIDATION
- * =========================
- */
-const validateVehicleData = async (data) => {
+
+const validateVehicleData = async (data, user) => {
   const rules = {
-    organizationId: "required|string",
     vehicleType: "required|in:car,bus,truck,bike,other",
     model: "string",
     status: "in:active,inactive",
   };
 
-  // Only validate vehicleNumber when required
   if (["car", "bus", "truck", "bike"].includes(data.vehicleType)) {
     rules.vehicleNumber = "required|string";
+  }
+
+  if (user.role === "superadmin") {
+    rules.organizationId = "required|string";
   }
 
   const validator = new Validator(data, rules);
   await validator.validate();
 };
 
-/**
- * =========================
- * CREATE VEHICLE
- * POST /api/vehicles
- * =========================
- */
+
 exports.create = async (req, res) => {
   try {
-    await validateVehicleData(req.body);
+    await validateVehicleData(req.body, req.user);
 
-    const { organizationId, vehicleType, vehicleNumber, model, status } =
-      req.body;
+    const { vehicleType, vehicleNumber, model, status } = req.body;
 
-    // If vehicle type requires number plate
+    const organizationId =
+      req.user.role === "superadmin"
+        ? req.body.organizationId
+        : req.orgId;
+
+    if (!organizationId) {
+      return res.status(400).json({
+        status: false,
+        message: "OrganizationId is required",
+      });
+    }
+
     if (
       ["car", "bus", "truck", "bike"].includes(vehicleType) &&
       !vehicleNumber
     ) {
       return res.status(400).json({
         status: false,
-        message: "Vehicle number is required for selected vehicle type",
+        message: "Vehicle number is required",
       });
     }
 
-    // Duplicate check (same org + vehicle number)
-    if (vehicleNumber) {
-      const exists = await VehicleModel.findOne({
-        organizationId,
-        vehicleNumber,
-      });
+    const exists = await VehicleModel.findOne({
+      organizationId,
+      vehicleNumber,
+    });
 
-      if (exists) {
-        return res.status(400).json({
-          status: false,
-          message: "Vehicle already exists",
-        });
-      }
+    if (exists) {
+      return res.status(400).json({
+        status: false,
+        message: "Vehicle already exists",
+      });
     }
 
     const vehicle = await VehicleModel.create({
@@ -70,7 +69,7 @@ exports.create = async (req, res) => {
       vehicleNumber,
       model,
       status: status || "active",
-      createdBy: req.user?._id,
+      createdBy: req.user._id,
     });
 
     return res.status(201).json({
@@ -79,14 +78,6 @@ exports.create = async (req, res) => {
       data: vehicle,
     });
   } catch (error) {
-    if (error.errors) {
-      return res.status(400).json({
-        status: false,
-        message: "Validation failed",
-        errors: error.errors,
-      });
-    }
-
     return res.status(500).json({
       status: false,
       message: error.message,
@@ -96,17 +87,19 @@ exports.create = async (req, res) => {
 
 /**
  * =========================
- * GET ALL VEHICLES (LIST + FILTERS)
- * GET /api/vehicles
+ * GET ALL VEHICLES
  * =========================
  */
 exports.getAll = async (req, res) => {
   try {
-    const { organizationId, vehicleType, status, page, limit, search } =
-      req.query;
+    const { vehicleType, status, page, limit, search } = req.query;
 
     const filter = {};
-    if (organizationId) filter.organizationId = organizationId;
+
+    if (req.user.role !== "superadmin") {
+      filter.organizationId = req.orgId;
+    }
+
     if (vehicleType) filter.vehicleType = vehicleType;
     if (status) filter.status = status;
 
@@ -124,8 +117,7 @@ exports.getAll = async (req, res) => {
   } catch (error) {
     return res.status(500).json({
       status: false,
-      message: "Server error",
-      error: error.message,
+      message: error.message,
     });
   }
 };
@@ -133,7 +125,6 @@ exports.getAll = async (req, res) => {
 /**
  * =========================
  * GET VEHICLE BY ID
- * GET /api/vehicles/:id
  * =========================
  */
 exports.getById = async (req, res) => {
@@ -141,190 +132,171 @@ exports.getById = async (req, res) => {
     const { id } = req.params;
 
     if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({
-        status: false,
-        message: "Invalid vehicle ID",
-      });
+      return res.status(400).json({ message: "Invalid ID" });
     }
 
-    const vehicle = await VehicleModel.findById(id).populate("createdBy");
+    const vehicle = await VehicleModel.findById(id);
 
     if (!vehicle) {
-      return res.status(404).json({
-        status: false,
-        message: "Vehicle not found",
-      });
+      return res.status(404).json({ message: "Vehicle not found" });
     }
 
-    return res.status(200).json({
+    if (
+      req.user.role !== "superadmin" &&
+      vehicle.organizationId.toString() !== req.orgId.toString()
+    ) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    return res.json({
       status: true,
-      message: "Vehicle fetched successfully",
       data: vehicle,
     });
   } catch (error) {
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       status: false,
       message: error.message,
+      errors: error.errors || null
     });
   }
 };
 
-/**
- * =========================
- * UPDATE VEHICLE
- * PUT /api/vehicles/:id
- * =========================
- */
+
 exports.update = async (req, res) => {
   try {
-    await validateVehicleData(req.body);
-
-    const { id } = req.params;
-
-    const updatedVehicle = await VehicleModel.findByIdAndUpdate(
-      id,
-      { ...req.body },
-      { new: true, runValidators: true }
-    );
-
-    if (!updatedVehicle) {
-      return res.status(404).json({
-        status: false,
-        message: "Vehicle not found",
-      });
-    }
-
-    return res.status(200).json({
-      status: true,
-      message: "Vehicle updated successfully",
-      data: updatedVehicle,
-    });
-  } catch (error) {
-    if (error.errors) {
-      return res.status(400).json({
-        status: false,
-        message: "Validation failed",
-        errors: error.errors,
-      });
-    }
-
-    return res.status(500).json({
-      status: false,
-      message: error.message,
-    });
-  }
-};
-
-/**
- * =========================
- * SOFT DELETE (DEACTIVATE)
- * PATCH /api/vehicles/:id/deactivate
- * =========================
- */
-exports.deactivate = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    const vehicle = await VehicleModel.findByIdAndUpdate(
-      id,
-      { status: "inactive" },
-      { new: true }
-    );
+    await validateVehicleData(req.body, req.user);
+    const vehicle = await VehicleModel.findById(req.params.id);
 
     if (!vehicle) {
-      return res.status(404).json({
-        status: false,
-        message: "Vehicle not found",
-      });
+      return res.status(404).json({ message: "Vehicle not found" });
     }
 
-    return res.status(200).json({
+    if (
+      req.user.role !== "superadmin" &&
+      vehicle.organizationId.toString() !== req.orgId.toString()
+    ) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    Object.assign(vehicle, req.body);
+    await vehicle.save();
+
+    return res.json({
       status: true,
-      message: "Vehicle deactivated successfully",
+      message: "Vehicle updated successfully",
       data: vehicle,
     });
   } catch (error) {
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       status: false,
       message: error.message,
+      errors: error.errors || null
     });
   }
 };
 
+
+exports.deactivate = async (req, res) => {
+  try {
+    const vehicle = await VehicleModel.findById(req.params.id);
+
+    if (!vehicle) {
+      return res.status(404).json({ message: "Vehicle not found" });
+    }
+
+    if (
+      req.user.role !== "superadmin" &&
+      vehicle.organizationId.toString() !== req.orgId.toString()
+    ) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    vehicle.status = "inactive";
+    await vehicle.save();
+
+    return res.json({
+      status: true,
+      message: "Vehicle deactivated",
+    });
+  } catch (error) {
+    return res.status(error.status || 500).json({
+      status: false,
+      message: error.message,
+      errors: error.errors || null
+    });
+  }
+};
 
 /**
  * =========================
  * UPDATE VEHICLE STATUS
- * PATCH /api/vehicles/:id/status
  * =========================
  */
 exports.updateStatus = async (req, res) => {
   try {
-    const { id } = req.params;
     const { status } = req.body;
 
     if (!["active", "inactive"].includes(status)) {
-      return res.status(400).json({
-        status: false,
-        message: "Status must be active or inactive",
-      });
+      return res.status(400).json({ message: "Invalid status" });
     }
 
-    const vehicle = await VehicleModel.findByIdAndUpdate(
-      id,
-      { status },
-      { new: true }
-    );
+    const vehicle = await VehicleModel.findById(req.params.id);
 
     if (!vehicle) {
-      return res.status(404).json({
-        status: false,
-        message: "Vehicle not found",
-      });
+      return res.status(404).json({ message: "Vehicle not found" });
     }
 
-    return res.status(200).json({
+    if (
+      req.user.role !== "superadmin" &&
+      vehicle.organizationId.toString() !== req.orgId.toString()
+    ) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    vehicle.status = status;
+    await vehicle.save();
+
+    return res.json({
       status: true,
-      message: `Vehicle ${status} successfully`,
-      data: vehicle,
+      message: `Vehicle ${status}`,
     });
   } catch (error) {
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       status: false,
       message: error.message,
+      errors: error.errors || null
     });
   }
 };
 
-
-
 /**
  * =========================
- * HARD DELETE (SUPER ADMIN)
- * DELETE /api/vehicles/:id
+ * HARD DELETE (SUPERADMIN)
  * =========================
  */
 exports.remove = async (req, res) => {
   try {
-    const { id } = req.params;
+    const vehicle = await VehicleModel.findById(req.params.id);
 
-    const deleted = await VehicleModel.findByIdAndDelete(id);
-
-    if (!deleted) {
-      return res.status(404).json({
-        status: false,
-        message: "Vehicle not found",
-      });
+    if (!vehicle) {
+      return res.status(404).json({ message: "Vehicle not found" });
     }
 
-    return res.status(200).json({
+    if (req.user.role !== "superadmin") {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    await vehicle.deleteOne();
+
+    return res.json({
       status: true,
       message: "Vehicle deleted successfully",
     });
   } catch (error) {
-    return res.status(500).json({
+    return res.status(error.status || 500).json({
       status: false,
       message: error.message,
+      errors: error.errors || null
     });
   }
 };

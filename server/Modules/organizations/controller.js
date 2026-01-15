@@ -51,3 +51,4 @@ exports.createOrganization = async (req, res) => {
         });
     }
 };
+

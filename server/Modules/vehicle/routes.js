@@ -56,6 +56,11 @@ router.patch(
   VehicleController.deactivate
 );
 
+// PATCH /api/vehicles/:id/active
+router.patch("/:id/active",
+  VehicleController.updateStatus
+);
+
 // HARD DELETE (super admin only)
 // DELETE /api/vehicles/:id
 router.delete(

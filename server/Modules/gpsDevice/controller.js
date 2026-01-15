@@ -12,7 +12,7 @@ const validateGpsDevice = async (data, isUpdate = false) => {
     imei: isUpdate ? "string|min:10" : "required|string|min:10",
     model: "required|string|min:2",
     vendor: "string",
-    status: "in:available,assigned,faulty",
+    // status: "in:assigned,faulty,stock",
   };
 
   const validator = new Validator(data, rules);
@@ -28,8 +28,8 @@ exports.create = async (req, res) => {
 
     const device = new GpsDeviceModel({
       ...req.body,
-      status: "available",
-      createdBy: req.user.id,
+      status: "stock",
+      createdBy: req.user?.id || null,
     });
 
     await device.save();
@@ -81,25 +81,6 @@ exports.getAll = async (req, res) => {
 };
 
 /* --------------------------------------------------
-   GET AVAILABLE DEVICES (STOCK)
--------------------------------------------------- */
-exports.getAvailable = async (req, res) => {
-  try {
-    const devices = await GpsDeviceModel.find({
-      status: "available",
-      isActive: true,
-    });
-
-    res.status(200).json({
-      status: true,
-      data: devices,
-    });
-  } catch (error) {
-    res.status(500).json({ status: false, message: error.message });
-  }
-};
-
-/* --------------------------------------------------
    GET DEVICE BY ID
 -------------------------------------------------- */
 exports.getById = async (req, res) => {
@@ -115,7 +96,9 @@ exports.getById = async (req, res) => {
     );
 
     if (!device) {
-      return res.status(404).json({ status: false, message: "Device not found" });
+      return res
+        .status(404)
+        .json({ status: false, message: "Device not found" });
     }
 
     res.status(200).json({ status: true, data: device });
@@ -138,7 +121,9 @@ exports.update = async (req, res) => {
     );
 
     if (!device) {
-      return res.status(404).json({ status: false, message: "Device not found" });
+      return res
+        .status(404)
+        .json({ status: false, message: "Device not found" });
     }
 
     res.status(200).json({
@@ -159,7 +144,9 @@ exports.markFaulty = async (req, res) => {
     const device = await GpsDeviceModel.findById(req.params.id);
 
     if (!device) {
-      return res.status(404).json({ status: false, message: "Device not found" });
+      return res
+        .status(404)
+        .json({ status: false, message: "Device not found" });
     }
 
     device.status = "faulty";
@@ -185,18 +172,24 @@ exports.assignToVehicle = async (req, res) => {
     const { vehicleId } = req.body;
 
     if (!mongoose.isValidObjectId(vehicleId)) {
-      return res.status(400).json({ status: false, message: "Invalid vehicle ID" });
+      return res
+        .status(400)
+        .json({ status: false, message: "Invalid vehicle ID" });
     }
 
     const device = await GpsDeviceModel.findById(req.params.id);
     const vehicle = await VehicleModel.findById(vehicleId);
 
     if (!device || !vehicle) {
-      return res.status(404).json({ status: false, message: "Device or vehicle not found" });
+      return res
+        .status(404)
+        .json({ status: false, message: "Device or vehicle not found" });
     }
 
     if (device.status !== "available") {
-      return res.status(400).json({ status: false, message: "Device not available" });
+      return res
+        .status(400)
+        .json({ status: false, message: "Device not available" });
     }
 
     device.status = "assigned";
@@ -223,10 +216,12 @@ exports.unassignFromVehicle = async (req, res) => {
     const device = await GpsDeviceModel.findById(req.params.id);
 
     if (!device) {
-      return res.status(404).json({ status: false, message: "Device not found" });
+      return res
+        .status(404)
+        .json({ status: false, message: "Device not found" });
     }
 
-    device.status = "available";
+    device.status = "stock";
     device.assignedVehicle = null;
 
     await device.save();
@@ -253,7 +248,9 @@ exports.deactivate = async (req, res) => {
     );
 
     if (!device) {
-      return res.status(404).json({ status: false, message: "Device not found" });
+      return res
+        .status(404)
+        .json({ status: false, message: "Device not found" });
     }
 
     res.status(200).json({
@@ -273,7 +270,9 @@ exports.remove = async (req, res) => {
     const result = await GpsDeviceModel.findByIdAndDelete(req.params.id);
 
     if (!result) {
-      return res.status(404).json({ status: false, message: "Device not found" });
+      return res
+        .status(404)
+        .json({ status: false, message: "Device not found" });
     }
 
     res.status(200).json({

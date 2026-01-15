@@ -12,10 +12,14 @@ const validateVehicleData = async (data) => {
   const rules = {
     organizationId: "required|string",
     vehicleType: "required|in:car,bus,truck,bike,other",
-    vehicleNumber: "string",
     model: "string",
     status: "in:active,inactive",
   };
+
+  // Only validate vehicleNumber when required
+  if (["car", "bus", "truck", "bike"].includes(data.vehicleType)) {
+    rules.vehicleNumber = "required|string";
+  }
 
   const validator = new Validator(data, rules);
   await validator.validate();
@@ -31,13 +35,8 @@ exports.create = async (req, res) => {
   try {
     await validateVehicleData(req.body);
 
-    const {
-      organizationId,
-      vehicleType,
-      vehicleNumber,
-      model,
-      status,
-    } = req.body;
+    const { organizationId, vehicleType, vehicleNumber, model, status } =
+      req.body;
 
     // If vehicle type requires number plate
     if (
@@ -103,14 +102,8 @@ exports.create = async (req, res) => {
  */
 exports.getAll = async (req, res) => {
   try {
-    const {
-      organizationId,
-      vehicleType,
-      status,
-      page,
-      limit,
-      search,
-    } = req.query;
+    const { organizationId, vehicleType, status, page, limit, search } =
+      req.query;
 
     const filter = {};
     if (organizationId) filter.organizationId = organizationId;
@@ -257,6 +250,53 @@ exports.deactivate = async (req, res) => {
     });
   }
 };
+
+
+/**
+ * =========================
+ * UPDATE VEHICLE STATUS
+ * PATCH /api/vehicles/:id/status
+ * =========================
+ */
+exports.updateStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!["active", "inactive"].includes(status)) {
+      return res.status(400).json({
+        status: false,
+        message: "Status must be active or inactive",
+      });
+    }
+
+    const vehicle = await VehicleModel.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+
+    if (!vehicle) {
+      return res.status(404).json({
+        status: false,
+        message: "Vehicle not found",
+      });
+    }
+
+    return res.status(200).json({
+      status: true,
+      message: `Vehicle ${status} successfully`,
+      data: vehicle,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      status: false,
+      message: error.message,
+    });
+  }
+};
+
+
 
 /**
  * =========================

@@ -35,6 +35,10 @@ const gpsDeviceSchema = {
     enum: ["stock", "assigned", "faulty"],
     default: "stock",
   },
+  isActive: {
+    type: Boolean,
+    default: true,
+  },
 };
 
 const GpsDeviceModel = new ajModel(

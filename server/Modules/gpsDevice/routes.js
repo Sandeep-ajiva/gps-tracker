@@ -1,16 +1,16 @@
 /**
  * GPS DEVICE ROUTES
  *
- *  POST    /api/gps-devices                    -> create gps device (stock entry)
- *  GET     /api/gps-devices                    -> get gps devices (list + filters)
- *  GET     /api/gps-devices/:id                -> get gps device by id
- *  PUT     /api/gps-devices/:id                -> update gps device details
- *  PATCH   /api/gps-devices/:id/mark-faulty    -> mark device as faulty
- *  POST    /api/gps-devices/:id/assign         -> assign device to vehicle
- *  POST    /api/gps-devices/:id/unassign       -> unassign device from vehicle
- *  GET     /api/gps-devices/available          -> get available (stock) devices
- *  PATCH   /api/gps-devices/:id/deactivate     -> soft delete gps device
- *  DELETE  /api/gps-devices/:id                -> hard delete gps device (super admin)
+ *  POST    /api/gpsDevice                   -> create gps device (stock entry)
+ *  GET     /api/gpsDevice                   -> get gps devices (list + filters)
+ *  GET     /api/gpsDevice/:id                -> get gps device by id
+ *  PUT     /api/gpsDevice/:id                -> update gps device details
+ *  PATCH   /api/gpsDevice/:id/mark-faulty    -> mark device as faulty
+ *  POST    /api/gpsDevice/:id/assign         -> assign device to vehicle
+ *  POST    /api/gpsDevice/:id/unassign       -> unassign device from vehicle
+ *  GET     /api/gpsDevice/available          -> get available (stock) devices
+ *  PATCH   /api/gpsDevice/:id/deactivate     -> soft delete gps device
+ *  DELETE  /api/gpsDevice/:id                -> hard delete gps device (super admin)
  */
 
 const express = require("express");

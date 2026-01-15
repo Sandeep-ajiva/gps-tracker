@@ -20,6 +20,11 @@ const gpsDeviceSchema = {
     trim: true,
   },
 
+  vendor: {              // ✅ unify naming
+    type: String,
+    trim: true,
+  },
+
   manufacturer: {
     type: String,
     trim: true,
@@ -35,9 +40,15 @@ const gpsDeviceSchema = {
     enum: ["stock", "assigned", "faulty"],
     default: "stock",
   },
+
   isActive: {
     type: Boolean,
     default: true,
+  },
+  
+  createdBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
   },
 };
 

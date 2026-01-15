@@ -1,9 +1,10 @@
 const mongoose = require("mongoose");
 const VehicleModel = require("./model");
 const paginate = require("../../helpers/limitoffset");
+const Validator = require('../../helpers/validators')
 
 
-const validateVehicleData = async (data, user) => {
+const validateCreateVehicle = async (data, user) => {
   const rules = {
     vehicleType: "required|in:car,bus,truck,bike,other",
     model: "string",
@@ -22,10 +23,51 @@ const validateVehicleData = async (data, user) => {
   await validator.validate();
 };
 
+const validateUpdateVehicle = async (data) => {
+  const rules = {
+    vehicleType: "in:car,bus,truck,bike,other",
+    vehicleNumber: "string",
+    model: "string",
+    status: "in:active,inactive",
+  };
+
+  // ❌ Empty string check
+  Object.keys(data).forEach((key) => {
+    if (data[key] === "") {
+      throw {
+        status: 400,
+        message: `${key} cannot be empty`,
+      };
+    }
+  });
+
+  // ✅ Allowed fields only
+  const allowedFields = [
+    "vehicleType",
+    "vehicleNumber",
+    "model",
+    "status",
+  ];
+
+  Object.keys(data).forEach((key) => {
+    if (!allowedFields.includes(key)) {
+      throw {
+        status: 400,
+        message: `Invalid field: ${key}`,
+      };
+    }
+  });
+
+  const validator = new Validator(data, rules);
+  await validator.validate();
+};
+
+
 
 exports.create = async (req, res) => {
   try {
-    await validateVehicleData(req.body, req.user);
+    await validateCreateVehicle(req.body, req.user);
+
 
     const { vehicleType, vehicleNumber, model, status } = req.body;
 
@@ -164,7 +206,8 @@ exports.getById = async (req, res) => {
 
 exports.update = async (req, res) => {
   try {
-    await validateVehicleData(req.body, req.user);
+    await validateUpdateVehicle(req.body);
+
     const vehicle = await VehicleModel.findById(req.params.id);
 
     if (!vehicle) {

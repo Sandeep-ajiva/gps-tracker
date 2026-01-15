@@ -45,10 +45,10 @@ exports.assign = async (req, res) => {
       return res.status(403).json({ message: "Forbidden" });
     }
 
-    // 1 DEVICE → 1 VEHICLE
+    // 1 DEVICE → 1 VEHICLE (ACTIVE = unassignedAt === null)
     const activeDeviceMap = await MappingModel.findOne({
-      device: deviceId,
-      isActive: true,
+      gpsDeviceId: deviceId,
+      unassignedAt: null,
     });
     if (activeDeviceMap) {
       return res.status(400).json({ message: "Device already assigned" });
@@ -56,8 +56,8 @@ exports.assign = async (req, res) => {
 
     // 1 VEHICLE → 1 DEVICE
     const activeVehicleMap = await MappingModel.findOne({
-      vehicle: vehicleId,
-      isActive: true,
+      vehicleId,
+      unassignedAt: null,
     });
     if (activeVehicleMap) {
       return res.status(400).json({ message: "Vehicle already has a device" });
@@ -68,12 +68,10 @@ exports.assign = async (req, res) => {
     }
 
     const mapping = await MappingModel.create({
-      vehicle: vehicleId,
-      device: deviceId,
+      vehicleId,
+      gpsDeviceId: deviceId,
       organizationId: vehicle.organizationId,
-      assignedBy: req.user.userId,
       assignedAt: new Date(),
-      isActive: true,
     });
 
     device.status = "assigned";
@@ -103,7 +101,7 @@ exports.getAll = async (req, res) => {
     filter,
     req.query.page,
     req.query.limit,
-    ["vehicle", "device"],
+    ["vehicleId", "gpsDeviceId"],
     [],
     req.query.search
   );
@@ -114,8 +112,8 @@ exports.getAll = async (req, res) => {
 /* ---------------- GET BY ID ---------------- */
 exports.getById = async (req, res) => {
   const mapping = await MappingModel.findById(req.params.id)
-    .populate("vehicle")
-    .populate("device");
+    .populate("vehicleId")
+    .populate("gpsDeviceId");
 
   if (!mapping) return res.status(404).json({ message: "Not found" });
 
@@ -141,8 +139,8 @@ exports.getByVehicle = async (req, res) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
-  const mappings = await MappingModel.find({ vehicle: req.params.id })
-    .populate("device")
+  const mappings = await MappingModel.find({ vehicleId: req.params.id })
+    .populate("gpsDeviceId")
     .sort({ assignedAt: -1 });
 
   res.json({ status: true, data: mappings });
@@ -160,8 +158,8 @@ exports.getByDevice = async (req, res) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
-  const mappings = await MappingModel.find({ device: req.params.id })
-    .populate("vehicle")
+  const mappings = await MappingModel.find({ gpsDeviceId: req.params.id })
+    .populate("vehicleId")
     .sort({ assignedAt: -1 });
 
   res.json({ status: true, data: mappings });
@@ -171,7 +169,7 @@ exports.getByDevice = async (req, res) => {
 exports.unassign = async (req, res) => {
   const mapping = await MappingModel.findById(req.params.id);
 
-  if (!mapping || !mapping.isActive) {
+  if (!mapping || mapping.unassignedAt !== null) {
     return res.status(404).json({ message: "Active mapping not found" });
   }
 
@@ -182,12 +180,10 @@ exports.unassign = async (req, res) => {
     return res.status(403).json({ message: "Forbidden" });
   }
 
-  mapping.isActive = false;
   mapping.unassignedAt = new Date();
-  mapping.unassignedBy = req.user.userId;
   await mapping.save();
 
-  await GpsDeviceModel.findByIdAndUpdate(mapping.device, {
+  await GpsDeviceModel.findByIdAndUpdate(mapping.gpsDeviceId, {
     status: "stock",
     assignedVehicle: null,
   });

@@ -62,22 +62,22 @@ router.put(
 // );
 
 // ASSIGN DEVICE TO VEHICLE
-router.post(
-  "/:id/assign",
-  verifyToken,
-  checkAuthorization(["admin", "superadmin"], "gpsDevice", "update"),
-  checkOrganization,
-  GpsDeviceController.assignToVehicle
-);
+// router.post(
+//   "/:id/assign",
+//   verifyToken,
+//   checkAuthorization(["admin", "superadmin"], "gpsDevice", "update"),
+//   checkOrganization,
+//   GpsDeviceController.assignToVehicle
+// );
 
 // UNASSIGN DEVICE
-router.post(
-  "/:id/unassign",
-  verifyToken,
-  checkAuthorization(["admin", "superadmin"], "gpsDevice", "update"),
-  checkOrganization,
-  GpsDeviceController.unassignFromVehicle
-);
+// router.post(
+//   "/:id/unassign",
+//   verifyToken,
+//   checkAuthorization(["admin", "superadmin"], "gpsDevice", "update"),
+//   checkOrganization,
+//   GpsDeviceController.unassignFromVehicle
+// );
 
 // DEACTIVATE DEVICE
 router.patch(

@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+/* Design tokens */
+:root {
+  --background: #ffffff;
+  /* --foreground: #171717; */
+}
+
+/* Tailwind theme mapping */
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  /* Seller/Admin Colors */
+  --color-primary: #FF5200;
+  --color-primary-dark: #E64A00;
+  --color-primary-light: #FFF1EB;
+  --color-secondary: #282C3F;
+  --color-secondary-light: #7E808C;
+  --color-success: #60B246;
+  --color-warning: #DB7C38;
+  --color-error: #ED4D4D;
+
+  --font-inter: "Inter", sans-serif;
+}
+
+@utility card {
+  background-color: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  border: 1px solid #f3f4f6;
+  padding: 1.5rem;
+}
+
+@utility btn-primary {
+  background-color: var(--color-primary);
+  color: white;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+  border-radius: 0.5rem;
+  font-weight: 700;
+  transition-property: all;
+
+  &:hover {
+    background-color: var(--color-primary-dark);
+  }
+}
+
+/* Global body styles */
+body {
+  background: linear-gradient(to bottom, transparent, #F9FAFB) #ffffff;
+  color: #282C3F;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-gray-50;
+  }
+}

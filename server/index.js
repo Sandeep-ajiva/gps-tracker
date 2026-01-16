@@ -8,7 +8,13 @@ const connectDB = require("./config/database");
 
 connectDB();
 
+const http = require("http");
+const { initializeSocket } = require("./socket");
+
 const app = express();
+const server = http.createServer(app);
+const io = initializeSocket(server);
+
 const modulesPath = path.join(__dirname, "Modules");
 
 app.use(express.json());
@@ -39,4 +45,9 @@ fs.readdirSync(modulesPath).forEach((folder) => {
 
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+// Start TCP Server
+const startTcpServer = require("./tcp/index");
+const TCP_PORT = process.env.TCP_PORT || 6000;
+startTcpServer(TCP_PORT);

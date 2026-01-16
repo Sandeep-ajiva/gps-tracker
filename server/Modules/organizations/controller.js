@@ -1,4 +1,4 @@
- const Organization = require('./model');
+const Organization = require('./model');
 const Validator = require('../../helpers/validators');
 
 const validateOrganizationData = async (data) => {
@@ -49,6 +49,49 @@ exports.createOrganization = async (req, res) => {
             status: false,
             message: "Internal server error",
         });
+    }
+};
+
+exports.getAll = async (req, res) => {
+    try {
+        const organizations = await Organization.find();
+        return res.status(200).json({
+            status: true,
+            message: "Organizations Fetched Successfully",
+            data: organizations
+        });
+    } catch (error) {
+        return res.status(500).json({ status: false, message: error.message });
+    }
+};
+
+exports.getById = async (req, res) => {
+    try {
+        const organization = await Organization.findById(req.params.id);
+        if (!organization) return res.status(404).json({ status: false, message: "Organization not found" });
+        return res.status(200).json({ status: true, data: organization });
+    } catch (error) {
+        return res.status(500).json({ status: false, message: error.message });
+    }
+};
+
+exports.update = async (req, res) => {
+    try {
+        const organization = await Organization.findByIdAndUpdate(req.params.id, req.body, { new: true });
+        if (!organization) return res.status(404).json({ status: false, message: "Organization not found" });
+        return res.status(200).json({ status: true, message: "Updated Successfully", data: organization });
+    } catch (error) {
+        return res.status(500).json({ status: false, message: error.message });
+    }
+};
+
+exports.delete = async (req, res) => {
+    try {
+        const organization = await Organization.findByIdAndDelete(req.params.id);
+        if (!organization) return res.status(404).json({ status: false, message: "Organization not found" });
+        return res.status(200).json({ status: true, message: "Deleted Successfully" });
+    } catch (error) {
+        return res.status(500).json({ status: false, message: error.message });
     }
 };
 

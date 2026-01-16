@@ -13,5 +13,10 @@ router.post(
   Controller.createOrganization
 );
 
+router.get("/", requireAuth, checkAuthorization(["superadmin"], "organizations", "read"), Controller.getAll);
+router.get("/:id", requireAuth, checkAuthorization(["superadmin"], "organizations", "read"), Controller.getById);
+router.put("/:id", requireAuth, checkAuthorization(["superadmin"], "organizations", "update"), Controller.update);
+router.delete("/:id", requireAuth, checkAuthorization(["superadmin"], "organizations", "delete"), Controller.delete);
+
 
 module.exports = router;

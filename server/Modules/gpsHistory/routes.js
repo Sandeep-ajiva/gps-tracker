@@ -1,12 +1,24 @@
 const express = require("express");
 const router = express.Router();
+const Controller = require("./controller");
 
-router.get("/", (req, res) => {
-  res.json({
-    status: true,
-    module: "working",
-    message: "This module is active"
-  });
-});
+const requireAuth = require("../../middleware/verifyToken");
+const checkAuthorization = require("../../middleware/checkAuthorization");
+
+// Get History (Replay path)
+router.get(
+  "/",
+  requireAuth,
+  checkAuthorization(["admin", "superadmin"], "gpsHistory", "read"),
+  Controller.getHistory
+);
+
+// Clear History (Cleanup)
+router.delete(
+  "/",
+  requireAuth,
+  checkAuthorization(["superadmin"], "gpsHistory", "delete"),
+  Controller.deleteHistory
+);
 
 module.exports = router;

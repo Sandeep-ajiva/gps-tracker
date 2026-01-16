@@ -1,12 +1,8 @@
 const express = require("express");
 const router = express.Router();
 
-router.get("/", (req, res) => {
-  res.json({
-    status: true,
-    module: "working",
-    message: "This module is active"
-  });
-});
+const GpsLiveDataController = require("./controller");
+
+router.post("/ingest", GpsLiveDataController.ingestData);
 
 module.exports = router;

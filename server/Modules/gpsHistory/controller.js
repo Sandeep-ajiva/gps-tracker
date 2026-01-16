@@ -1,39 +1,59 @@
-const { ajModel } = require("../../common/classes/Model");
-const mongoose = require("mongoose");
+const GpsHistory = require("./model");
+const Vehicle = require("../vehicle/model");
 
-const gpsHistorySchema = {
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Organization",
-    required: true,
-  },
+exports.getHistory = async (req, res) => {
+  try {
+    const { vehicleId, startDate, endDate } = req.query;
 
-  vehicleId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Vehicle",
-    required: true,
-  },
+    if (!vehicleId) {
+      return res.status(400).json({ status: false, message: "Vehicle ID is required" });
+    }
 
-  gpsDeviceId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "GpsDevice",
-    required: true,
-  },
+    // Validate Vehicle ownership (optional, depending on requirements)
+    // const vehicle = await Vehicle.findOne({ _id: vehicleId, organizationId: req.user.organizationId });
+    // if (!vehicle) return res.status(404).json({ message: "Vehicle not found" });
 
-  latitude: Number,
-  longitude: Number,
-  speed: Number,
-  ignition: Boolean,
+    const query = {
+      vehicleId,
+    };
 
-  recordedAt: {
-    type: Date,
-    default: Date.now,
-  },
+    if (startDate || endDate) {
+      query.recordedAt = {};
+      if (startDate) query.recordedAt.$gte = new Date(startDate);
+      if (endDate) query.recordedAt.$lte = new Date(endDate);
+    }
+
+    // Limit results to prevent crashing the browser with too many points
+    const history = await GpsHistory.find(query)
+      .sort({ recordedAt: 1 })
+      .limit(5000); // Max 5000 points per request
+
+    return res.status(200).json({
+      status: true,
+      count: history.length,
+      data: history
+    });
+
+  } catch (error) {
+    console.error("Get History Error:", error);
+    return res.status(500).json({ status: false, message: error.message });
+  }
 };
 
-const GpsHistoryModel = new ajModel(
-  "GpsHistory",
-  gpsHistorySchema
-).getModel();
+exports.deleteHistory = async (req, res) => {
+  try {
+    // Only Super Admin should delete history?
+    if (req.user.role !== 'superadmin') {
+      return res.status(403).json({ message: "Denied" });
+    }
 
-module.exports = GpsHistoryModel;
+    const { vehicleId } = req.query;
+    if (!vehicleId) return res.status(400).json({ message: "Provide vehicleId" });
+
+    await GpsHistory.deleteMany({ vehicleId });
+    return res.status(200).json({ status: true, message: "History cleared for vehicle" });
+
+  } catch (error) {
+    return res.status(500).json({ status: false, message: error.message });
+  }
+}

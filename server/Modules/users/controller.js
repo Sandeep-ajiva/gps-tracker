@@ -140,32 +140,63 @@ exports.createOrganizationAdmin = async (req, res) => {
 }
 
 exports.getAllAdmins = async (req, res) => {
-  try {
-    // 🔒 Extra safety (even though middleware already checks)
-    if (req.user.role !== "superadmin") {
-      return res.status(403).json({
-        status: false,
-        message: "Access denied",
-      });
+    try {
+        // 🔒 Extra safety (even though middleware already checks)
+        if (req.user.role !== "superadmin") {
+            return res.status(403).json({
+                status: false,
+                message: "Access denied",
+            });
+        }
+
+        const admins = await User.find({ role: "admin" })
+            .select("-passwordHash")
+            .populate("organizationId", "name email phone")
+            .sort({ createdAt: -1 });
+
+        return res.status(200).json({
+            status: true,
+            totalAdmins: admins.length,
+            data: admins,
+        });
+
+    } catch (error) {
+        console.error("Get All Admins Error:", error);
+        return res.status(500).json({
+            status: false,
+            message: "Server error",
+        });
     }
+};
 
-    const admins = await User.find({ role: "admin" })
-      .select("-passwordHash")
-      .populate("organizationId", "name email phone")
-      .sort({ createdAt: -1 });
+exports.updateUser = async (req, res) => {
+    try {
+        const { firstName, lastName, email, mobile, status } = req.body;
+        const user = await User.findByIdAndUpdate(
+            req.params.id,
+            { firstName, lastName, email, mobile, status },
+            { new: true }
+        ).select("-passwordHash");
 
-    return res.status(200).json({
-      status: true,
-      totalAdmins: admins.length,
-      data: admins,
-    });
+        if (!user) return res.status(404).json({ status: false, message: "User not found" });
 
-  } catch (error) {
-    console.error("Get All Admins Error:", error);
-    return res.status(500).json({
-      status: false,
-      message: "Server error",
-    });
-  }
+        return res.status(200).json({
+            status: true,
+            message: "User updated successfully",
+            data: user
+        });
+    } catch (error) {
+        return res.status(500).json({ status: false, message: error.message });
+    }
+};
+
+exports.deleteUser = async (req, res) => {
+    try {
+        const user = await User.findByIdAndDelete(req.params.id);
+        if (!user) return res.status(404).json({ status: false, message: "User not found" });
+        return res.status(200).json({ status: true, message: "User deleted successfully" });
+    } catch (error) {
+        return res.status(500).json({ status: false, message: error.message });
+    }
 };
 

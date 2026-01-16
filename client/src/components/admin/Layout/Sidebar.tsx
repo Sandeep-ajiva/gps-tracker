@@ -5,19 +5,15 @@ import { usePathname } from "next/navigation";
 
 import {
     LayoutDashboard,
-    Package,
-    ShoppingCart,
     Users,
+    Map,
+    History,
+    Car,
+    Radio,
+    Link as LinkIcon,
+    Building2,
     Settings,
-    Store,
-    CreditCard,
-    ShieldCheck,
-    LogOut,
-    Bike,
-    MapPin,
-    Tag,
-    PieChart,
-    Layers
+    LogOut
 } from "lucide-react";
 
 const menuGroups = [
@@ -25,37 +21,23 @@ const menuGroups = [
         title: "System",
         items: [
             { name: "Dashboard", icon: LayoutDashboard, href: "/admin" },
-            { name: "Analytics", icon: PieChart, href: "/admin/analytics" },
+            { name: "Live Tracking", icon: Map, href: "/admin/live-tracking" },
         ]
     },
     {
         title: "Management",
         items: [
-            { name: "Users", icon: Users, href: "/admin/customers" },
-            { name: "Vendors", icon: Store, href: "/admin/restaurants" },
-            { name: "Delivery Partners", icon: Bike, href: "/admin/riders" },
+            { name: "Organizations", icon: Building2, href: "/admin/organizations" },
+            { name: "Vehicles", icon: Car, href: "/admin/vehicles" },
+            { name: "GPS Devices", icon: Radio, href: "/admin/gps-devices" },
+            { name: "Users", icon: Users, href: "/admin/users" },
         ]
     },
     {
         title: "Operations",
         items: [
-            { name: "Orders", icon: ShoppingCart, href: "/admin/orders" },
-            { name: "Products", icon: Package, href: "/admin/products" },
-            { name: "Categories", icon: Layers, href: "/admin/categories" },
-        ]
-    },
-    {
-        title: "Logistics",
-        items: [
-            { name: "Cities & Zones", icon: MapPin, href: "/admin/logistics" },
-        ]
-    },
-    {
-        title: "Finance",
-        items: [
-            { name: "Transactions", icon: CreditCard, href: "/admin/transactions" },
-            { name: "Commissions", icon: ShieldCheck, href: "/admin/commissions" },
-            { name: "Coupons", icon: Tag, href: "/admin/coupons" },
+            { name: "Device Mapping", icon: LinkIcon, href: "/admin/device-mapping" },
+            { name: "History Playback", icon: History, href: "/admin/history" },
         ]
     },
     {
@@ -73,7 +55,7 @@ export default function Sidebar() {
         <aside className="w-64 bg-white border-r border-gray-200 h-screen fixed left-0 top-0 flex flex-col z-50">
             {/* Logo */}
             <div className="h-16 flex items-center px-6 border-b border-gray-100">
-                <span className="text-2xl font-bold text-[#1877F2]">Shopod<span className="text-gray-400 text-sm font-normal ml-1">Admin</span></span>
+                <span className="text-2xl font-bold text-[#1877F2]">GPS<span className="text-gray-400 text-sm font-normal ml-1">Tracker</span></span>
             </div>
 
             {/* Navigation */}

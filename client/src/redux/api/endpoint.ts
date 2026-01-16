@@ -20,34 +20,9 @@ const dummyProducts = [
 
 export const api = baseApi.injectEndpoints({
   endpoints: (builder) => ({
-    // ✅ DUMMY QUERY
-    getProducts: builder.query<any[], void>({
-      queryFn: async () => {
-        return {
-          data: dummyProducts,
-        };
-      },
-      providesTags: ["Product"],
-    }),
-
-    // ✅ DUMMY MUTATION
-    createOrder: builder.mutation<any, { amount: number }>({
-      queryFn: async (body) => {
-        return {
-          data: {
-            success: true,
-            orderId: "ORD123456",
-            amount: body.amount,
-            status: "created",
-          },
-        };
-      },
-      invalidatesTags: ["Order"],
-    }),
+    // GPS Tracker Endpoints will replace these
   }),
 });
 
-export const {
-  useGetProductsQuery,
-  useCreateOrderMutation,
-} = api;
+// GPS Tracker Endpoints will be in separate files
+

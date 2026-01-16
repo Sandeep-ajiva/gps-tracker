@@ -18,9 +18,9 @@ router.get(
 router.post("/login", Controller.login);
 
 router.post("/orgadmin", requireAuth,
-    "create"), Controller.createOrganizationAdmin);
+    checkAuthorization(["superadmin"], "users", "create"), Controller.createOrganizationAdmin);
 
 router.put("/:id", requireAuth, checkAuthorization(["superadmin"], "users", "update"), Controller.updateUser);
 router.delete("/:id", requireAuth, checkAuthorization(["superadmin"], "users", "delete"), Controller.deleteUser);
 
-module.exports = router;    
+module.exports = router;

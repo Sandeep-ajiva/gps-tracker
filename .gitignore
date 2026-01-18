@@ -3,3 +3,5 @@ server/node_modules/
 client/tracker/node_modules/
 .env
 client/node_modules
+client/node_modules
+.next/

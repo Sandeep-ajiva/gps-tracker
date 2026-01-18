@@ -1,15 +1,30 @@
 export const API_ROUTES = {
-  // AUTH
-  LOGIN: "/auth/login",
-  REGISTER: "/auth/register",
-  LOGOUT: "/auth/logout",
+  // ================= AUTH =================
+  LOGIN: "/users/login",
+  LOGOUT: "/logout",
 
-  // PRODUCTS
-  PRODUCTS: "/products",
-  PRODUCT_BY_ID: (id: string | number) => `/products/${id}`,
+  // ================= ORGANIZATIONS =================
+  ORGANIZATIONS: "/organizations",
+  ORGANIZATION_BY_ID: (id: string) => `/organizations/${id}`,
 
-  // ORDERS
-  CREATE_ORDER: "/orders",
-  ORDER_BY_ID: (id: string | number) => `/orders/${id}`,
-  USER_ORDERS: "/orders/user",
+  // ================= USERS =================
+  USERS: "/users",
+  USER_BY_ID: (id: string) => `/users/${id}`,
+
+  // ================= VEHICLES =================
+  VEHICLES: "/vehicles",
+  VEHICLE_BY_ID: (id: string) => `/vehicles/${id}`,
+
+  // ================= GPS DEVICES =================
+  GPS_DEVICES: "/gps-devices",
+  GPS_DEVICE_BY_ID: (id: string) => `/gps-devices/${id}`,
+
+  // ================= DEVICE MAPPING =================
+  DEVICE_MAPPING: "/device-mapping",
+
+  // ================= LIVE TRACKING =================
+  LIVE_TRACKING: "/live-tracking",
+
+  // ================= HISTORY =================
+  GPS_HISTORY: (vehicleId: string) => `/gps-history/${vehicleId}`,
 } as const;

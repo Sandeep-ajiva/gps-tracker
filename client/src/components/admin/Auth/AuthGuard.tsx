@@ -13,9 +13,9 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
         const token = localStorage.getItem("token");
         const role = localStorage.getItem("userRole");
 
-        if (!token || role !== "admin") {
+        if (!token || role !== "superadmin") {
             // If no token or wrong role, redirect to login
-            router.push("/login?role=admin");
+            router.push("/login?role=superadmin");
         } else {
             // If token exists and is admin, allow access
             setAuthorized(true);

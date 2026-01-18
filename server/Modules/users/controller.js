@@ -10,7 +10,7 @@ console.log("LOGIN SECRET:", JWT_SECRET);
 const validateLoginData = async (data) => {
     const rules = {
         email: "required|email",
-        passwordHash: "required"
+        password: "required"
     }
     const validator = new Validator(data, rules)
     await validator.validate()
@@ -31,37 +31,41 @@ exports.login = async (req, res) => {
     try {
         await validateLoginData(req.body);
 
-        const { email, passwordHash } = req.body;
+        const { email, password } = req.body;
 
-        const user = await User.findOne({ email: email.toLowerCase() })
-
+        const user = await User.findOne({ email: email.toLowerCase() });
         if (!user) {
-            return res
-                .status(401)
-                .json({ status: false, message: "Invalid email or password" });
+            return res.status(401).json({
+                status: false,
+                message: "Invalid email or password",
+            });
         }
-        const isMatch = await bcrypt.compare(passwordHash, user.passwordHash);
+
+        const isMatch = await bcrypt.compare(password, user.passwordHash);
         if (!isMatch) {
             return res.status(401).json({
                 status: false,
-                message: "Invalid email or password"
-            })
+                message: "Invalid email or password",
+            });
         }
+
         if (user.status !== "active") {
             return res.status(403).json({
                 status: false,
                 message: "User account is inactive",
             });
         }
+
         const token = jwt.sign(
             {
                 userId: user._id,
                 role: user.role,
-                organizationId: user.organizationId || null
+                organizationId: user.organizationId || null,
             },
             JWT_SECRET,
             { expiresIn: "1d" }
-        )
+        );
+
         return res.status(200).json({
             status: true,
             message: "Login Successfully",
@@ -71,16 +75,16 @@ exports.login = async (req, res) => {
                 role: user.role,
                 organizationId: user.organizationId,
             },
-
-        })
-
+        });
     } catch (error) {
+        console.error("LOGIN ERROR 👉", error);
         return res.status(500).json({
             status: false,
             message: "Server error",
         });
     }
-}
+};
+
 
 exports.createOrganizationAdmin = async (req, res) => {
     try {

@@ -2,6 +2,7 @@ const express = require("express");
 require("dotenv").config();
 const fs = require("fs");
 const path = require("path");
+const cors = require("cors")
 
 const responseTimeLogger = require("./middleware/responseTimeLogger");
 const connectDB = require("./config/database");
@@ -20,6 +21,13 @@ const modulesPath = path.join(__dirname, "Modules");
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(responseTimeLogger);
+
+app.use(cors({
+  origin: "http://localhost:3000",
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+}));
+
 
 app.get("/", (req, res) => {
   res.send("API is running...");

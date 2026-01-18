@@ -1,3 +1,4 @@
+
 import { Inter } from "next/font/google";
 import ReduxProvider from "@/providers/ReduxProvider";
 import "./globals.css";

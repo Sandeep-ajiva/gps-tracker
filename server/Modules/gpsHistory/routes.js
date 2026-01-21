@@ -10,7 +10,7 @@ router.get(
   "/",
   requireAuth,
   checkAuthorization(["admin", "superadmin"], "gpsHistory", "read"),
-  Controller.getHistory
+  Controller.getAll
 );
 
 // Clear History (Cleanup)

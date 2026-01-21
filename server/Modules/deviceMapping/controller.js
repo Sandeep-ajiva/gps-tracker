@@ -26,14 +26,14 @@ exports.assign = async (req, res) => {
       !mongoose.isValidObjectId(vehicleId) ||
       !mongoose.isValidObjectId(deviceId)
     ) {
-      return res.status(400).json({ message: "Invalid IDs" });
+      return res.status(400).json({ status: false, message: "Invalid IDs" });
     }
 
     const vehicle = await VehicleModel.findById(vehicleId);
     const device = await GpsDeviceModel.findById(deviceId);
 
     if (!vehicle || !device) {
-      return res.status(404).json({ message: "Vehicle or Device not found" });
+      return res.status(404).json({ status: false, message: "Vehicle or Device not found" });
     }
 
     // 🔒 ORG CHECK
@@ -51,7 +51,7 @@ exports.assign = async (req, res) => {
       unassignedAt: null,
     });
     if (activeDeviceMap) {
-      return res.status(400).json({ message: "Device already assigned" });
+      return res.status(400).json({ status: false, message: "Device already assigned" });
     }
 
     // 1 VEHICLE → 1 DEVICE
@@ -60,11 +60,11 @@ exports.assign = async (req, res) => {
       unassignedAt: null,
     });
     if (activeVehicleMap) {
-      return res.status(400).json({ message: "Vehicle already has a device" });
+      return res.status(400).json({ status: false, message: "Vehicle already has a device" });
     }
 
     if (device.status !== "stock") {
-      return res.status(400).json({ message: "Device not available" });
+      return res.status(400).json({ status: false, message: "Device not available" });
     }
 
     const mapping = await MappingModel.create({
@@ -84,119 +84,143 @@ exports.assign = async (req, res) => {
       data: mapping,
     });
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    res.status(500).json({ status: false, message: error.message });
   }
 };
 
 /* ---------------- GET ALL ---------------- */
 exports.getAll = async (req, res) => {
-  const filter = {};
+  try {
+    const filter = {};
 
-  if (req.user.role !== "superadmin") {
-    filter.organizationId = req.orgId;
+    if (req.user.role !== "superadmin") {
+      filter.organizationId = req.orgId;
+    }
+
+    const result = await paginate(
+      MappingModel,
+      filter,
+      req.query.page,
+      req.query.limit,
+      ["vehicleId", "gpsDeviceId"],
+      [],
+      req.query.search
+    );
+
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
   }
-
-  const result = await paginate(
-    MappingModel,
-    filter,
-    req.query.page,
-    req.query.limit,
-    ["vehicleId", "gpsDeviceId"],
-    [],
-    req.query.search
-  );
-
-  res.json(result);
 };
 
 /* ---------------- GET BY ID ---------------- */
 exports.getById = async (req, res) => {
-  const mapping = await MappingModel.findById(req.params.id)
-    .populate("vehicleId")
-    .populate("gpsDeviceId");
+  try {
+    const mapping = await MappingModel.findById(req.params.id)
+      .populate("vehicleId")
+      .populate("gpsDeviceId");
 
-  if (!mapping) return res.status(404).json({ message: "Not found" });
+    if (!mapping) return res.status(404).json({ status: false, message: "Not found" });
 
-  if (
-    req.user.role !== "superadmin" &&
-    mapping.organizationId.toString() !== req.orgId.toString()
-  ) {
-    return res.status(403).json({ message: "Forbidden" });
+    if (
+      req.user.role !== "superadmin" &&
+      mapping.organizationId.toString() !== req.orgId.toString()
+    ) {
+      return res.status(403).json({ status: false, message: "Forbidden" });
+    }
+
+    res.json({ status: true, data: mapping });
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
   }
-
-  res.json({ status: true, data: mapping });
 };
 
 /* ---------------- GET BY VEHICLE ---------------- */
 exports.getByVehicle = async (req, res) => {
-  const vehicle = await VehicleModel.findById(req.params.id);
-  if (!vehicle) return res.status(404).json({ message: "Vehicle not found" });
+  try {
+    const vehicle = await VehicleModel.findById(req.params.id);
+    if (!vehicle) return res.status(404).json({ status: false, message: "Vehicle not found" });
 
-  if (
-    req.user.role !== "superadmin" &&
-    vehicle.organizationId.toString() !== req.orgId.toString()
-  ) {
-    return res.status(403).json({ message: "Forbidden" });
+    if (
+      req.user.role !== "superadmin" &&
+      vehicle.organizationId.toString() !== req.orgId.toString()
+    ) {
+      return res.status(403).json({ status: false, message: "Forbidden" });
+    }
+
+    const mappings = await MappingModel.find({ vehicleId: req.params.id })
+      .populate("gpsDeviceId")
+      .sort({ assignedAt: -1 });
+
+    res.json({ status: true, data: mappings });
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
   }
-
-  const mappings = await MappingModel.find({ vehicleId: req.params.id })
-    .populate("gpsDeviceId")
-    .sort({ assignedAt: -1 });
-
-  res.json({ status: true, data: mappings });
 };
 
 /* ---------------- GET BY DEVICE ---------------- */
 exports.getByDevice = async (req, res) => {
-  const device = await GpsDeviceModel.findById(req.params.id);
-  if (!device) return res.status(404).json({ message: "Device not found" });
+  try {
+    const device = await GpsDeviceModel.findById(req.params.id);
+    if (!device) return res.status(404).json({ status: false, message: "Device not found" });
 
-  if (
-    req.user.role !== "superadmin" &&
-    device.organizationId.toString() !== req.orgId.toString()
-  ) {
-    return res.status(403).json({ message: "Forbidden" });
+    if (
+      req.user.role !== "superadmin" &&
+      device.organizationId.toString() !== req.orgId.toString()
+    ) {
+      return res.status(403).json({ status: false, message: "Forbidden" });
+    }
+
+    const mappings = await MappingModel.find({ gpsDeviceId: req.params.id })
+      .populate("vehicleId")
+      .sort({ assignedAt: -1 });
+
+    res.json({ status: true, data: mappings });
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
   }
-
-  const mappings = await MappingModel.find({ gpsDeviceId: req.params.id })
-    .populate("vehicleId")
-    .sort({ assignedAt: -1 });
-
-  res.json({ status: true, data: mappings });
 };
 
 /* ---------------- UNASSIGN ---------------- */
 exports.unassign = async (req, res) => {
-  const mapping = await MappingModel.findById(req.params.id);
+  try {
+    const mapping = await MappingModel.findById(req.params.id);
 
-  if (!mapping || mapping.unassignedAt !== null) {
-    return res.status(404).json({ message: "Active mapping not found" });
+    if (!mapping || mapping.unassignedAt !== null) {
+      return res.status(404).json({ status: false, message: "Active mapping not found" });
+    }
+
+    if (
+      req.user.role !== "superadmin" &&
+      mapping.organizationId.toString() !== req.orgId.toString()
+    ) {
+      return res.status(403).json({ status: false, message: "Forbidden" });
+    }
+
+    mapping.unassignedAt = new Date();
+    await mapping.save();
+
+    await GpsDeviceModel.findByIdAndUpdate(mapping.gpsDeviceId, {
+      status: "stock",
+      assignedVehicle: null,
+    });
+
+    res.json({ status: true, message: "Device unassigned" });
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
   }
-
-  if (
-    req.user.role !== "superadmin" &&
-    mapping.organizationId.toString() !== req.orgId.toString()
-  ) {
-    return res.status(403).json({ message: "Forbidden" });
-  }
-
-  mapping.unassignedAt = new Date();
-  await mapping.save();
-
-  await GpsDeviceModel.findByIdAndUpdate(mapping.gpsDeviceId, {
-    status: "stock",
-    assignedVehicle: null,
-  });
-
-  res.json({ status: true, message: "Device unassigned" });
 };
 
 /* ---------------- DELETE (SUPERADMIN) ---------------- */
 exports.remove = async (req, res) => {
-  if (req.user.role !== "superadmin") {
-    return res.status(403).json({ message: "Forbidden" });
-  }
+  try {
+    if (req.user.role !== "superadmin") {
+      return res.status(403).json({ status: false, message: "Forbidden" });
+    }
 
-  await MappingModel.findByIdAndDelete(req.params.id);
-  res.json({ status: true, message: "Mapping deleted permanently" });
+    await MappingModel.findByIdAndDelete(req.params.id);
+    res.json({ status: true, message: "Mapping deleted permanently" });
+  } catch (error) {
+    res.status(500).json({ status: false, message: error.message });
+  }
 };

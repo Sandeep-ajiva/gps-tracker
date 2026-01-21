@@ -21,7 +21,10 @@ const vehicleSchema = {
     },
     trim: true,
   },
-
+  image:{
+    type: String,
+    trim: true,
+  },
 
   model: {
     type: String,
@@ -37,6 +40,10 @@ const vehicleSchema = {
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "User",
+  },
+  engine: {
+    type: Boolean,
+    default: false,
   },
 };
 

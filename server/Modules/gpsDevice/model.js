@@ -2,59 +2,16 @@ const { ajModel } = require("../../common/classes/Model");
 const mongoose = require("mongoose");
 
 const gpsDeviceSchema = {
-  organizationId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Organization",
-    required: true,
-  },
-
-  imei: {
-    type: String,
-    required: true,
-    unique: true,
-    trim: true,
-  },
-
-  model: {
-    type: String,
-    trim: true,
-  },
-
-  vendor: {              // ✅ unify naming
-    type: String,
-    trim: true,
-  },
-
-  manufacturer: {
-    type: String,
-    trim: true,
-  },
-
-  simNumber: {
-    type: String,
-    trim: true,
-  },
-
-  status: {
-    type: String,
-    enum: ["stock", "assigned", "faulty"],
-    default: "stock",
-  },
-
-  isActive: {
-    type: Boolean,
-    default: true,
-  },
-  
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
-  },
+  organizationId: { type: mongoose.Schema.Types.ObjectId, ref: "Organization" },
+  imei: { type: String, required: true, unique: true },
+  deviceModel:String,
+  manufacturer:String,
+  simNumber:String,
+  serialNumber:String,
+  firmwareVersion:String,
+  hardwareVersion:String,
+  connectionStatus:{ type:String, enum:["online","offline"], default:"offline" },
+  warrantyExpiry:Date
 };
 
-const GpsDeviceModel = new ajModel(
-  "GpsDevice",
-  gpsDeviceSchema
-).getModel();
-
-module.exports = GpsDeviceModel;
+module.exports = new ajModel("GpsDevice", gpsDeviceSchema).getModel();

@@ -1,100 +1,58 @@
 const express = require("express");
 const router = express.Router();
 
-const GpsDeviceController = require("./controller");
-
-const verifyToken = require("../../middleware/verifyToken");
+const requireAuth = require("../../middleware/verifyToken");
 const checkAuthorization = require("../../middleware/checkAuthorization");
-const checkOrganization = require("../../middleware/checkOrganization");
 
-// CREATE GPS DEVICE
+const Controller = require("./controller");
+
 router.post(
   "/",
-  verifyToken,
-  checkAuthorization(["admin", "superadmin"], "gpsDevice", "create"),
-  checkOrganization,
-  GpsDeviceController.create
+  requireAuth,
+  checkAuthorization(["admin", "manager"], "gpsDevices", "create"),
+  Controller.create
 );
 
-// GET ALL GPS DEVICES
 router.get(
   "/",
-  verifyToken,
-  checkAuthorization(["admin", "superadmin"], "gpsDevice", "read"),
-  checkOrganization,
-  GpsDeviceController.getAll
+  requireAuth,
+  checkAuthorization(["admin", "manager"], "gpsDevices", "read"),
+  Controller.getAll
 );
 
-// GET AVAILABLE DEVICES
 router.get(
   "/available",
-  verifyToken,
-  checkAuthorization(["admin", "superadmin"], "gpsDevice", "read"),
-  checkOrganization,
-  GpsDeviceController.getAvailable
+  requireAuth,
+  checkAuthorization(["admin", "manager"], "gpsDevices", "read"),
+  Controller.getAvailable
 );
 
-// GET DEVICE BY ID
 router.get(
   "/:id",
-  verifyToken,
-  checkAuthorization(["admin", "superadmin"], "gpsDevice", "read"),
-  checkOrganization,
-  GpsDeviceController.getById
+  requireAuth,
+  checkAuthorization(["admin", "manager"], "gpsDevices", "read"),
+  Controller.getById
 );
 
-// UPDATE DEVICE
 router.put(
   "/:id",
-  verifyToken,
-  checkAuthorization(["admin", "superadmin"], "gpsDevice", "update"),
-  checkOrganization,
-  GpsDeviceController.update
+  requireAuth,
+  checkAuthorization(["admin", "manager"], "gpsDevices", "update"),
+  Controller.update
 );
 
-// MARK FAULTY
-// router.patch(
-//   "/:id/mark-faulty",
-//   verifyToken,
-//   checkAuthorization(["admin", "superadmin"], "gpsDevice", "update"),
-//   checkOrganization,
-//   GpsDeviceController.markFaulty
-// );
-
-// ASSIGN DEVICE TO VEHICLE
-// router.post(
-//   "/:id/assign",
-//   verifyToken,
-//   checkAuthorization(["admin", "superadmin"], "gpsDevice", "update"),
-//   checkOrganization,
-//   GpsDeviceController.assignToVehicle
-// );
-
-// UNASSIGN DEVICE
-// router.post(
-//   "/:id/unassign",
-//   verifyToken,
-//   checkAuthorization(["admin", "superadmin"], "gpsDevice", "update"),
-//   checkOrganization,
-//   GpsDeviceController.unassignFromVehicle
-// );
-
-// DEACTIVATE DEVICE
-router.patch(
-  "/:id/deactivate",
-  verifyToken,
-  checkAuthorization(["admin", "superadmin"], "gpsDevice", "update"),
-  checkOrganization,
-  GpsDeviceController.deactivate
+router.put(
+  "/:id/status",
+  requireAuth,
+  checkAuthorization(["admin", "manager"], "gpsDevices", "update"),
+  Controller.updateConnectionStatus
 );
 
-// HARD DELETE (SUPERADMIN)
 router.delete(
   "/:id",
-  verifyToken,
-  checkAuthorization(["superadmin"], "gpsDevice", "delete"),
-  checkOrganization,
-  GpsDeviceController.remove
+  requireAuth,
+  checkAuthorization(["admin"], "gpsDevices", "delete"),
+  Controller.delete
 );
 
 module.exports = router;

@@ -61,6 +61,7 @@ exports.getAll = async (req, res) => {
             data: organizations
         });
     } catch (error) {
+        console.error("Get All Organizations Error:", error);
         return res.status(500).json({ status: false, message: error.message });
     }
 };
@@ -69,8 +70,9 @@ exports.getById = async (req, res) => {
     try {
         const organization = await Organization.findById(req.params.id);
         if (!organization) return res.status(404).json({ status: false, message: "Organization not found" });
-        return res.status(200).json({ status: true, data: organization });
+        return res.status(200).json({ status: true, message: "Organization Fetched Successfully", data: organization });
     } catch (error) {
+        console.error("Get Organization By ID Error:", error);
         return res.status(500).json({ status: false, message: error.message });
     }
 };
@@ -79,8 +81,9 @@ exports.update = async (req, res) => {
     try {
         const organization = await Organization.findByIdAndUpdate(req.params.id, req.body, { new: true });
         if (!organization) return res.status(404).json({ status: false, message: "Organization not found" });
-        return res.status(200).json({ status: true, message: "Updated Successfully", data: organization });
+        return res.status(200).json({ status: true, message: "Organization Updated Successfully", data: organization });
     } catch (error) {
+        console.error("Update Organization Error:", error);
         return res.status(500).json({ status: false, message: error.message });
     }
 };
@@ -89,8 +92,9 @@ exports.delete = async (req, res) => {
     try {
         const organization = await Organization.findByIdAndDelete(req.params.id);
         if (!organization) return res.status(404).json({ status: false, message: "Organization not found" });
-        return res.status(200).json({ status: true, message: "Deleted Successfully" });
+        return res.status(200).json({ status: true, message: "Organization Deleted Successfully" });
     } catch (error) {
+        console.error("Delete Organization Error:", error);
         return res.status(500).json({ status: false, message: error.message });
     }
 };

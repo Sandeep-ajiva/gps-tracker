@@ -5,41 +5,35 @@ const gpsHistorySchema = {
   organizationId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Organization",
-    required: true,
   },
 
   vehicleId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "Vehicle",
-    required: true,
   },
 
   gpsDeviceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: "GpsDevice",
-    required: true,
   },
 
-  location: {
-    type: {
-      type: String,
-      enum: ["Point"],
-      default: "Point",
-    },
-    coordinates: {
-      type: [Number], // [longitude, latitude]
-      required: true,
-    },
-    speed: Number,
-    ignition: Boolean,
+  driverId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Driver",
   },
 
-  recordedAt: {
-    type: Date,
-    default: Date.now,
+  tripId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Trip",
   },
+
+  latitude: Number,
+  longitude: Number,
+  speed: Number,
+  heading: Number,
+  altitude: Number,
+  accuracy: Number,
+  timestamp: Date
 };
 
-const GpsHistoryModel = new ajModel("GpsHistory", gpsHistorySchema).getModel();
-
-module.exports = GpsHistoryModel;
+module.exports = new ajModel("GpsHistory", gpsHistorySchema).getModel();

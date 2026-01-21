@@ -88,7 +88,7 @@ exports.login = async (req, res) => {
 
 exports.createOrganizationAdmin = async (req, res) => {
     try {
-        validateAdminData(req.body);
+        await validateAdminData(req.body);
         const {
             firstName,
             lastName,
